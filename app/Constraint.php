@@ -5,5 +5,8 @@
  */
 interface Constraint {
 	public function evaluate($items);
-	public function update($placed_item, $new_constraint);
+	public function substitute($placed_item, $new_constraint);
+	public function normalize();
+	public function minRequired();
+	public function simplify();
 }

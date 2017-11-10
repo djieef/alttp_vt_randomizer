@@ -16,7 +16,23 @@ class CLiteral implements Constraint {
 		return $this->lit;
 	}
 	
-	public function update($placed_item, $new_constraint) {
+	public function substitute($placed_item, $new_constraint) {
+		return $this;
+	}
+	
+	public function normalize() {
+		return $this;
+	}
+	
+	public function minRequired() {
+		return 0;
+	}
+	
+	public function getLit() {
+		return $this->lit;
+	}
+	
+	public function simplify() {
 		return $this;
 	}
 	
