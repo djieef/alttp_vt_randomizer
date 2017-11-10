@@ -1,8 +1,6 @@
 <?php namespace ALttP\Constraint;
 
 use ALttP\Constraint;
-use ALttP\Constraint\CAnd;
-use ALttP\Constraint\CCount;
 use ALttP\Item;
 
 /**
