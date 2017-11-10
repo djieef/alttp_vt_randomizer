@@ -1,5 +1,7 @@
 <?php namespace ALttP\Constraint;
 
+use ALttP\Constraint;
+
 /**
  * Class representing joining two Constraints with the logical 'or' operator
  */
@@ -13,11 +15,11 @@ class COr implements Constraint {
 	}
 	
 	public function evaluate($items) {
-		return $this->lhs.evaluate($items) || $this->rhs.evaluate($items);
+		return $this->lhs->evaluate($items) || $this->rhs->evaluate($items);
 	}
 	
 	public function update($placed_item, $new_constraint) {
-		return new COr($this->lhs.update($placed_item, $new_constraint), $this->rhs.update($placed_item, $new_constraint));
+		return new COr($this->lhs->update($placed_item, $new_constraint), $this->rhs->update($placed_item, $new_constraint));
 	}
 	
 	public static function of($l, $r) {
