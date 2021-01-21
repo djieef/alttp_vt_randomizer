@@ -1,4 +1,6 @@
-<?php namespace MajorGlitches;
+<?php
+
+namespace MajorGlitches;
 
 use ALttP\Item;
 use ALttP\World;
@@ -7,64 +9,102 @@ use TestCase;
 /**
  * @group MajorGlitches
  */
-class HyruleCastleEscapeTest extends TestCase {
-	public function setUp() {
-		parent::setUp();
-		$this->world = new World('test_rules', 'MajorGlitches');
-	}
+class HyruleCastleEscapeTest extends TestCase
+{
+    public function setUp(): void
+    {
+        parent::setUp();
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'logic' => 'MajorGlitches']);
+        $this->collected->setChecksForWorld($this->world->id);
+    }
 
-	public function tearDown() {
-		parent::tearDown();
-		unset($this->world);
-	}
+    public function tearDown(): void
+    {
+        parent::tearDown();
+        unset($this->world);
+    }
 
-	// Entry
-	public function testNothingRequiredToEnter() {
-		$this->assertTrue($this->world->getRegion('Escape')
-			->canEnter($this->world->getLocations(), $this->collected));
-	}
+    /**
+     * @param string $location
+     * @param bool $access
+     * @param array $items
+     * @param array $except
+     *
+     * @dataProvider accessPool
+     */
+    public function testLocation(string $location, bool $access, array $items, array $except = [])
+    {
+        if (count($except)) {
+            $this->collected = $this->allItemsExcept($except);
+        }
 
-	// Item locations
-	public function testSancturaryRequiresNothing() {
-		$this->assertTrue($this->world->getLocation("Sanctuary")
-			->canAccess($this->collected));
-	}
+        $this->addCollected($items);
 
-	public function testBoomerangRoomRequiresNothing() {
-		$this->assertTrue($this->world->getLocation("Hyrule Castle - Boomerang Chest")
-			->canAccess($this->collected));
-	}
+        $this->assertEquals($access, $this->world->getLocation($location)
+            ->canAccess($this->collected));
+    }
 
-	public function testMapRoomRequiresNothing() {
-		$this->assertTrue($this->world->getLocation("Hyrule Castle - Map Chest")
-			->canAccess($this->collected));
-	}
+    /**
+     * @param string $location
+     * @param bool $access
+     * @param string $item
+     * @param array $items
+     * @param array $except
+     *
+     * @dataProvider fillPool
+     */
+    public function testFillLocation(string $location, bool $access, string $item, array $items = [], array $except = [])
+    {
+        if (count($except)) {
+            $this->collected = $this->allItemsExcept($except);
+        }
 
-	public function testZeldaRequiresNothing() {
-		$this->assertTrue($this->world->getLocation("Hyrule Castle - Zelda's Cell")
-			->canAccess($this->collected));
-	}
+        $this->addCollected($items);
 
-	public function testSewersFirstRoomRequiresNothing() {
-		$this->assertTrue($this->world->getLocation("Sewers - Dark Cross")
-			->canAccess($this->collected));
-	}
+        $this->assertEquals($access, $this->world->getLocation($location)
+            ->fill(Item::get($item, $this->world), $this->collected));
+    }
 
-	public function testSewersFinalRoomChestLRequiresNothing() {
-		$this->assertTrue($this->world->getLocation("Sewers - Secret Room - Left")
-			->canAccess($this->collected));
-	}
+    public function fillPool()
+    {
+        return [
 
-	public function testSewersFinalRoomChestMRequiresNothing() {
-		$this->assertTrue($this->world->getLocation("Sewers - Secret Room - Middle")
-			->canAccess($this->collected));
-	}
+            ["Sanctuary", false, 'KeyH2', [], ['KeyH2']],
 
-	public function testSewersFinalRoomChestRRequiresNothing() {
-		$this->assertTrue($this->world->getLocation("Sewers - Secret Room - Right")
-			->canAccess($this->collected));
-	}
+            ["Sewers - Secret Room - Left", false, 'KeyH2', [], ['KeyH2']],
 
-	// Key filling
-	// @TODO: determine if key filling requirements matter
+            ["Sewers - Secret Room - Middle", false, 'KeyH2', [], ['KeyH2']],
+
+            ["Sewers - Secret Room - Right", false, 'KeyH2', [], ['KeyH2']],
+
+            ["Sewers - Dark Cross", true, 'KeyH2', [], ['KeyH2']],
+
+            ["Hyrule Castle - Boomerang Chest", true, 'KeyH2', [], ['KeyH2']],
+
+            ["Hyrule Castle - Map Chest", true, 'KeyH2', [], ['KeyH2']],
+
+            ["Hyrule Castle - Zelda's Cell", true, 'KeyH2', [], ['KeyH2']],
+        ];
+    }
+
+    public function accessPool()
+    {
+        return [
+            ["Sanctuary", true, ['UncleSword', 'KeyH2']],
+
+            ["Sewers - Secret Room - Left", true, ['UncleSword', 'KeyH2']],
+
+            ["Sewers - Secret Room - Middle", true, ['UncleSword', 'KeyH2']],
+
+            ["Sewers - Secret Room - Right", true, ['UncleSword', 'KeyH2']],
+
+            ["Sewers - Dark Cross", true, ['UncleSword']],
+
+            ["Hyrule Castle - Boomerang Chest", true, ['UncleSword']],
+
+            ["Hyrule Castle - Map Chest", true, ['UncleSword']],
+
+            ["Hyrule Castle - Zelda's Cell", true, ['UncleSword']],
+        ];
+    }
 }

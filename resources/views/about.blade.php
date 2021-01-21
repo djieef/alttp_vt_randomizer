@@ -1,28 +1,32 @@
 @extends('layouts.default')
 
 @section('content')
-<h1>What is A Link to the Past: VT Randomizer?</h1>
-<div class="well">
-	<p>The basic idea is that all item locations in the game have their items shuffled around… so for example you
-		never know what you’re going to find when you open a treasure chest! There are many item locations in the
-		game beyond treasure chests, for example overworld heart pieces and NPC’s that give you items
-		- these are all included too!</p>
-	<p>The VT Randomizer is a web based rom patcher that will allow you to make a randomized rom from one you
-		supply. It is meant to always have the newest things available as the Randomizer team develops them.</p>
-	<p>This was written and is maintained by Veetorp. A big thanks to Dessyreqt, ChristosOwen, Smallhacker and Karkat
-		for their work - without which none of this would have been even remotely possible!</p>
+<img :src="$store.state.theme === 'dark' ? '/i/logo-large-dm.png' : '/i/logo-large.png'" style="margin:-11% 0 -10% 0;width:100%" />
+<div class="btn-wrapper">
+<div class="btn-cta"><a
+    class="btn btn-primary btn-lg"
+    href="/{{ app()->getLocale() }}/start"
+    role="button">{{ __('navigation.start_playing') }}</a></div>
+<div class="btn-cta"><a
+    class="btn btn-outline-secondary btn-lg"
+    href="/{{ app()->getLocale() }}/watch"
+    role="button"
+    style="margin-left:20px;">{{ __('navigation.start_watching') }}</a></div>
 </div>
-<h1>Where do I download this?</h1>
-<div class="well">
-	<p>The VT Randomizer is an entirely web based randomizer, There is no download client for it. That being said
-		the ROM is patched entirely in your browser. Being a web version we can get the newest features availble
-		to users as quickly as possible. Click on <em>Generate Randomized Game</em> above to get started.</p>
+<div class="card card-body bg-light" style="font-size:22px;margin-top:40px;">
+    @foreach (__('about.content') as $block)
+        <p>{!! $block !!}</p>
+    @endforeach
 </div>
-<h1>Is there a community for this?</h1>
-<div class="well">
-	<p>Heck yeahs there is!</p>
-	<p>If you're not already a member, feel free to join our discord at
-		<a href="https://discord.gg/yEvqSRk" target="_blank">https://discord.gg/yEvqSRk</a>! You'll find lots
-		of helpful people there for when you get stuck :) Or just cool people to talk to, like the Developers.</p>
+
+<div class="card card-body bg-light">
+    <iframe class="mx-auto"
+        allow="encrypted-media"
+        allowfullscreen
+        frameborder="0"
+        gesture="media"
+        height="315"
+        src="https://www.youtube.com/embed/YaEypVa3kx4?rel=0"
+        width="560"></iframe>
 </div>
 @overwrite

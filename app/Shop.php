@@ -1,45 +1,230 @@
-<?php namespace ALttP;
+<?php
 
-use ALttP\Rom;
+namespace ALttP;
+
+use ALttP\Support\ShopCollection;
+use ALttP\Support\LocationCollection;
 
 /**
  * Shop related features.
  * this is very much a work in progress
  */
-class Shop {
-	// Shop Items
-	// 0x07 is red goo 150 rupees
-	// 0x08 Blue Shield 50 rupees
-	// 0x09 Red Shield 500 rupees
-	// 0x0A small heart 10 rupees
-	// 0x0B 10x arrows 30 rupees
-	// 0x0C bombs 50 rupees
-	// 0x0D Gold Bee 10 rupees
+class Shop
+{
+    protected $name;
+    protected $config;
+    protected $shopkeeper;
+    protected $room_id;
+    protected $door_id;
+    protected $region;
+    protected $requirement_callback;
+    protected $writes = [];
+    protected $active = false;
+    protected $inventory = [];
 
-	// GFX of numbers when changing cost
-	// 0x2D: '+'
-	// 0x30: '0'
-	// 0x31: '1'
-	// 0x02: '2'
-	// 0x03: '3'
-	// 0x12: '4'
-	// 0x13: '5'
-	// 0x22: '6'
-	// 0x23: '7'
-	// 0x32: '8'
-	// 0x33: '9'
+    /**
+     * Create a new Shop
+     *
+     * @param string $name Unique name of Shop
+     * @param int $config td----qq t: take-any,  d: check door, q: number of items for sale
+     * @param int $shopkeeper ppp---ss p: palette s: sprite
+     * @param int $room_id Id for the room to use
+     * @param int $door_id Id of door to use
+     * @param \ALttP\Region $region Region where the shop is found
+     * @param array $writes extra data that needs to be written to entrance table to make sure it works correctly
+     *
+     * @return void
+     */
+    public function __construct(string $name, int $config, int $shopkeeper, int $room_id, int $door_id, Region $region, array $writes = [])
+    {
+        $this->name = $name;
+        $this->config = $config;
+        $this->shopkeeper = $shopkeeper;
+        $this->room_id = $room_id;
+        $this->door_id = $door_id;
+        $this->region = $region;
+        $this->writes = $writes;
+    }
 
-	public function writeShopItemsToRom(Rom $rom) {
-		$rom->write(0x30C34, pack('C*', 0x07)); // Dark World Kakriko Left
-		$rom->write(0x30C3C, pack('C*', 0x08)); // Dark World Kakriko Center
-		$rom->write(0x30C44, pack('C*', 0x0C)); // Dark World Kakriko Right
+    /**
+     * Get the name of this Shop
+     *
+     * @return string
+     */
+    public function getName(): string
+    {
+        return $this->name;
+    }
 
-		$rom->write(0x30C4D, pack('C*', 0x09)); // Dark World East of Kakriko Left
-		$rom->write(0x30C55, pack('C*', 0x0D)); // Dark World East of Kakriko Center
-		$rom->write(0x30C5D, pack('C*', 0x0B)); // Dark World East of Kakriko Right
+    public function getBytes(int $sram_offset = 0x00): array
+    {
+        return array_merge(
+            array_values(unpack('C*', pack('S', $this->room_id ?? 0))),
+            [$this->door_id, 0x00, ($this->config & 0xFC) + count($this->inventory), $this->shopkeeper, $sram_offset]
+        );
+    }
 
-		$rom->write(0x30C8C, pack('C*', 0x07)); // North Hylia/Kakriko/Death Mountain Shop Left
-		$rom->write(0x30C84, pack('C*', 0x0A)); // North Hylia/Kakriko/Death Mountain Shop Center
-		$rom->write(0x30C9C, pack('C*', 0x0C)); // North Hylia/Kakriko/Death Mountain Shop Right
-	}
+    /**
+     * Write extra data into the rom for this location. Generally, this is used for take-anys that will essentually
+     * hijack another cave/house and place themselves in there. Usually it's done by wiriting the type ID into
+     * the table starting at 0xDBB73 offset by the entrance ID.
+     *
+     * @param \ALttP\Rom $rom Rom to write data to
+     *
+     * @return $this
+     */
+    public function writeExtraData(Rom $rom): self
+    {
+        foreach ($this->writes as $address => $bytes) {
+            $rom->write($address, pack('C*', ...$bytes));
+        }
+
+        return $this;
+    }
+
+    public function setActive(bool $active): self
+    {
+        $this->active = $active;
+
+        return $this;
+    }
+
+    public function getActive(): bool
+    {
+        return $this->active;
+    }
+
+    public function setShopkeeper(string $shopkeeper): self
+    {
+        switch ($shopkeeper) {
+            case 'old_man':
+                $this->shopkeeper = 0xE2;
+                break;
+            case 'old_woman':
+                $this->shopkeeper = 0xE3;
+                break;
+            case 'dark_shopkepper':
+                $this->shopkeeper = 0xC1;
+                break;
+            case 'shopkeeper':
+            default:
+                $this->shopkeeper = 0xA0;
+        }
+
+        return $this;
+    }
+
+    public function clearInventory(): self
+    {
+        $this->inventory = [];
+
+        return $this;
+    }
+
+    public function addInventory(int $slot, Item $item, int $price, int $max = 0, Item $replacement = null, int $replacement_price = 0): self
+    {
+        $this->inventory[$slot] = [
+            'id' => head($item->getBytes()),
+            'item' => $item,
+            'price' => $price,
+            'max' => $max,
+            'replace_id' => $replacement === null ? 0xFF : head($replacement->getBytes()),
+            'replacement_item' => $replacement,
+            'replace_price' => $replacement_price,
+        ];
+
+        return $this;
+    }
+
+    public function getInventory(): array
+    {
+        return $this->inventory;
+    }
+
+    public function getLocations(): LocationCollection
+    {
+        $locations = [];
+        foreach ($this->inventory as $slot => $record) {
+            $location = (new Location("$this->name - $slot", [], null, $this->region))->setItem($record['item']);
+            if ($this->requirement_callback) {
+                $location->setRequirements($this->requirement_callback);
+            }
+            $locations[] = $location;
+
+            if ($record['replacement_item']) {
+                $location = (new Location("$this->name - $slot.2", [], null, $this->region))->setItem($record['replacement_item']);
+                if ($this->requirement_callback) {
+                    $location->setRequirements($this->requirement_callback);
+                }
+                $locations[] = $location;
+            }
+        }
+        return new LocationCollection($locations);
+    }
+
+    /**
+     * Determine if Link can access this location given his Items collected. Starts by checking if access to the Region
+     * is granted, then checks the spcific location.
+     *
+     * @param \ALttP\Support\ItemCollection          $items     Items Link can collect
+     * @param \ALttP\Support\LocationCollection|null $locations current locations
+     *
+     * @return bool
+     */
+    public function canAccess($items, $locations = null)
+    {
+        if (!$this->region->canEnter($locations ?? $this->region->getWorld()->getLocations(), $items)) {
+            return false;
+        }
+
+        if (!$this->requirement_callback || call_user_func($this->requirement_callback, $locations ?? $this->region->getWorld()->getLocations(), $items)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Set the requirements callback for this Lcation, closure should take 2 arguments, $locations and $items and
+     * return boolean.
+     *
+     * @param Callable $callback function to be called when checking if Location can have Item
+     *
+     * @return $this
+     */
+    public function setRequirements(callable $callback)
+    {
+        $this->requirement_callback = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Get the Region of this Location.
+     *
+     * @return \ALttP\Region
+     */
+    public function getRegion()
+    {
+        return $this->region;
+    }
+
+    public function copy()
+    {
+        $copy = new static($this->name, $this->config, $this->shopkeeper, $this->room_id, $this->door_id, $this->region, $this->writes);
+        $copy->inventory = $this->inventory;
+        $copy->requirement_callback = $this->requirement_callback;
+
+        return $copy;
+    }
+
+    /**
+     * Convert this to string representation
+     *
+     * @return string
+     */
+    public function __toString()
+    {
+        return $this->name;
+    }
 }

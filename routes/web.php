@@ -1,271 +1,139 @@
 <?php
 
-use ALttP\Item;
-use ALttP\Location;
-use ALttP\World;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
-Route::get('randomize{r?}', function () {
-	return view('randomizer');
+Route::get('base_rom/settings', 'SettingsController@rom');
+
+Route::get('customizer/settings', 'SettingsController@customizer');
+
+Route::get('randomizer/settings', 'SettingsController@item');
+
+Route::get('sprites', 'SettingsController@sprites');
+
+Route::any('hash/{hash}', static function ($hash) {
+    $cache_hash = 'hash.' . $hash;
+    $payload = cache($cache_hash);
+    if (!$payload) {
+        try {
+            $stored = Storage::get($hash . '.json');
+            if (mb_strpos($stored, "\x1f\x8b") === 0) {
+                $stored = gzdecode($stored);
+            }
+            cache([$cache_hash => $stored], now()->addDays(7));
+            return $stored;
+        } catch (\Exception $e) {
+            try {
+                cache([$cache_hash => Storage::get($hash . '.json')], now()->addDays(7));
+                return cache($cache_hash);
+            } catch (\Exception $e2) {
+                logger()->error($e2->getMessage());
+            }
+        }
+        abort(404);
+    }
+
+    return $payload;
 });
 
-Route::get('entrance/randomize{r?}', function () {
-	return view('entrance_randomizer');
+// @TODO: perhaps a front end page that checks their localStorage for prefered locale?
+Route::get('h/{hash}', static function ($hash) {
+    return redirect(config('app.locale') . '/h/' . $hash);
 });
 
-Route::get('customize{r?}', function () {
-	$world = new World;
-	$items = Item::all();
-	return view('customizer', [
-		'world' => $world,
-		'location_class' => [
-			Location\Prize\Pendant::class => 'prizes',
-			Location\Prize\Crystal::class => 'prizes',
-			Location\Medallion::class => 'medallions',
-			Location\Fountain::class => 'bottles',
-		],
-		'items' => $items->filter(function($item) {
-			return !$item instanceof Item\Pendant
-				&& !$item instanceof Item\Crystal
-				&& !$item instanceof Item\Event
-				&& !$item instanceof Item\Programmable
-				&& !in_array($item->getName(), ['L2Sword', 'singleRNG', 'multiRNG']);
-		}),
-		'prizes' => $items->filter(function($item) {
-			return $item instanceof Item\Pendant
-				|| $item instanceof Item\Crystal;
-		}),
-		'medallions' => $items->filter(function($item) {
-			return $item instanceof Item\Medallion;
-		}),
-		'bottles' => $items->filter(function($item) {
-			return $item instanceof Item\Bottle;
-		}),
-	]);
-});
+Route::prefix('{lang?}')->middleware('locale')->group(function () {
+    Route::view('/', 'about');
 
-Route::get('/', function () {
-	return view('about');
-});
+    Route::view('about', 'about');
 
-Route::get('about', function () {
-	return view('about');
-});
+    Route::view('calendar', 'calendar');
 
-Route::get('game_modes', function () {
-	return view('game_modes');
-});
+    Route::view('contribute', 'contribute');
 
-Route::get('game_logics', function () {
-	return view('game_logics');
-});
+    Route::view('customize{r?}', 'customizer');
 
-Route::get('game_difficulties', function () {
-	return view('game_difficulties');
-});
+    Route::redirect('entrance/randomize{r?}', 'randomizer', 301);
 
-Route::get('game_variations', function () {
-	return view('game_variations');
-});
+    Route::redirect('game_modes', 'options', 301);
 
-Route::get('game_entrance', function () {
-	return view('game_entrance');
-});
+    Route::redirect('game_logics', 'options', 301);
 
-Route::get('info', function () {
-	return redirect('help');
-});
+    Route::redirect('game_difficulties', 'options', 301);
 
-Route::get('stuck', function () {
-	return view('stuck');
-});
+    Route::redirect('game_variations', 'options', 301);
 
-Route::get('help', function () {
-	return view('help');
-});
+    Route::redirect('game_enemizer', 'options', 301);
 
-Route::get('updates', function () {
-	return view('updates');
-});
+    Route::redirect('game_entrance', 'options', 301);
 
-Route::get('spoiler_click/{seed_id?}', function() {
-	return "Ok";
-});
+    Route::view('help', 'start');
 
-Route::any('hash/{hash}', function(Request $request, $hash) {
-	$seed = ALttP\Seed::where('hash', $hash)->first();
-	if ($seed) {
-		return json_encode([
-			'logic' => $seed->logic,
-			'difficulty' => $seed->rules,
-			'patch' => json_decode($seed->patch),
-			'spoiler' => array_except(array_only(json_decode($seed->spoiler, true), ['meta']), ['meta.seed']),
-			'hash' => $seed->hash,
-		]);
-	}
-	abort(404);
-});
+    Route::redirect('info', 'help', 301);
 
-Route::any('entrance/seed/{seed_id?}', function(Request $request, $seed_id = null) {
-	$difficulty = $request->input('difficulty', 'normal') ?: 'normal';
-	$variation = $request->input('variation', 'none') ?: 'none';
+    // Route::view('multiworld', 'multiworld');
 
-	config(['game-mode' => $request->input('mode', 'standard')]);
+    Route::view('options', 'options');
 
-	$rom = new ALttP\Rom();
-	if ($request->has('heart_speed')) {
-		$rom->setHeartBeepSpeed($request->input('heart_speed'));
-	}
-	if ($request->has('sram_trace')) {
-		$rom->setSRAMTrace($request->input('sram_trace') == 'true');
-	}
-	if ($request->has('menu_fast')) {
-		$rom->setQuickMenu($request->input('menu_fast') == 'true');
-	}
-	if ($request->has('debug')) {
-		$rom->setDebugMode($request->input('debug') == 'true');
-	}
+    Route::view('races', 'races');
 
-	try {
-		$rand = new ALttP\EntranceRandomizer($difficulty, 'noglitches', $request->input('goal', 'ganon'), $variation, $request->input('shuffle', 'full'));
-		$rand->makeSeed($seed_id);
-		$rand->writeToRom($rom);
-		$seed = $rand->getSeed();
-		$patch = $rom->getWriteLog();
-		$spoiler = $rand->getSpoiler();
-		$hash = $rand->saveSeedRecord();
-	} catch (Exception $e) {
-		return response('Failed', 409);
-	}
+    Route::view('randomize{r?}', 'randomizer');
 
-	if ($request->has('tournament') && $request->input('tournament') == 'true') {
-		$rom->setSeedString(str_pad(sprintf("ER TOURNEY %s", $hash), 21, ' '));
-		$patch = patch_merge_minify($rom->getWriteLog());
-		$rand->updateSeedRecordPatch($patch);
-		$spoiler = array_except(array_only($spoiler, ['meta']), ['meta.seed']);
-		$seed = $hash;
-	}
+    Route::view('resources', 'resources');
 
-	return json_encode([
-		'seed' => $seed,
-		'logic' => $rand->getLogic(),
-		'difficulty' => $difficulty,
-		'patch' => $patch,
-		'spoiler' => $spoiler,
-		'hash' => $hash,
-	]);
-});
+    Route::redirect('special', '/');
 
-Route::any('seed/{seed_id?}', function(Request $request, $seed_id = null) {
-	$difficulty = $request->input('difficulty', 'normal') ?: 'normal';
-	$variation = $request->input('variation', 'none') ?: 'none';
+    Route::view('sprite_preview', 'sprite_preview');
 
-	if ($difficulty == 'custom') {
-		config($request->input('data'));
-		$world = new World($difficulty, $request->input('logic', 'NoMajorGlitches'), $request->input('goal', 'ganon'), $variation);
-		$locations = $world->getLocations();
-		foreach ($request->input('l', []) as $location => $item) {
-			$decoded_location = base64_decode($location);
-			if (isset($locations[$decoded_location])) {
-				$locations[$decoded_location]->setItem(Item::get($item));
-			}
-		}
-	}
+    Route::view('start', 'start');
 
-	config(['game-mode' => $request->input('mode', 'standard')]);
+    Route::view('updates', 'updates');
 
-	$rom = new ALttP\Rom();
-	if ($request->has('heart_speed')) {
-		$rom->setHeartBeepSpeed($request->input('heart_speed'));
-	}
-	if ($request->has('sram_trace')) {
-		$rom->setSRAMTrace($request->input('sram_trace') == 'true');
-	}
-	if ($request->has('menu_fast')) {
-		$rom->setQuickMenu($request->input('menu_fast') == 'true');
-	}
-	if ($request->has('debug')) {
-		$rom->setDebugMode($request->input('debug') == 'true');
-	}
+    Route::view('watch', 'watch');
 
-	if ($request->has('tournament') && $request->input('tournament') == 'true') {
-		config([
-			"tournament-mode" => true,
-		]);
-		$rom->setTournamentType('standard');
-	} else {
-		$rom->setTournamentType('none');
-	}
+    Route::get('daily', static function () {
+        $featured = ALttP\FeaturedGame::today();
+        if (!$featured) {
+            $exitCode = Artisan::call('alttp:dailies', ['days' => 1]);
+            $featured = ALttP\FeaturedGame::today();
+        }
+        $seed = $featured->seed;
+        if ($seed) {
+            $build = ALttP\Build::where('build', $seed->build)->first();
+            if (!$build) {
+                abort(404);
+            }
+            return view('daily', [
+                'hash' => $seed->hash,
+                'md5' => $build->hash,
+                'bpsLocation' => sprintf(
+                    '/bps/%s.bps',
+                    $build->hash
+                ),
+                'daily' => $featured->day,
+            ]);
+        }
+        abort(404);
+    });
 
-	$seed_id = is_numeric($seed_id) ? $seed_id : abs(crc32($seed_id));
-
-	$rand = new ALttP\Randomizer($difficulty, $request->input('logic', 'NoMajorGlitches'), $request->input('goal', 'ganon'), $variation);
-	if (isset($world)) {
-		$rand->setWorld($world);
-	}
-	$rand->makeSeed($seed_id);
-	$rand->writeToRom($rom);
-	$seed = $rand->getSeed();
-	if (!$rand->getWorld()->checkWinCondition()) {
-		return response('Failed', 409);
-	}
-	$patch = $rom->getWriteLog();
-	$spoiler = $rand->getSpoiler();
-	$hash = $rand->saveSeedRecord();
-
-	if ($request->has('tournament') && $request->input('tournament') == 'true') {
-		$rom->setSeedString(str_pad(sprintf("VT TOURNEY %s", $hash), 21, ' '));
-		$rom->rummageTable();
-		$patch = patch_merge_minify($rom->getWriteLog());
-		$rand->updateSeedRecordPatch($patch);
-		$spoiler = array_except(array_only($spoiler, ['meta']), ['meta.seed']);
-		$seed = $hash;
-	}
-
-	return json_encode([
-		'seed' => $seed,
-		'logic' => $rand->getLogic(),
-		'difficulty' => $difficulty,
-		'patch' => $patch,
-		'spoiler' => $spoiler,
-		'hash' => $hash,
-	]);
-});
-
-Route::get('spoiler/{seed_id}', function(Request $request, $seed_id) {
-	$difficulty = $request->input('difficulty', 'normal');
-	if ($difficulty == 'custom') {
-		config($request->input('data'));
-	}
-	$variation = $request->input('variation', 'none') ?: 'none';
-
-	config(['game-mode' => $request->input('mode', 'standard')]);
-
-	if ($request->has('tournament') && $request->input('tournament') == 'true') {
-		config([
-			"tournament-mode" => true,
-		]);
-	}
-
-	$seed_id = is_numeric($seed_id) ? $seed_id : abs(crc32($seed_id));
-
-	$rand = new ALttP\Randomizer($difficulty, $request->input('logic', 'NoMajorGlitches'), $request->input('goal', 'ganon'), $variation);
-	$rand->makeSeed($seed_id);
-	return json_encode($rand->getSpoiler());
-});
-
-Route::get('h/{hash}', function(Request $request, $hash) {
-	$seed = ALttP\Seed::where('hash', $hash)->first();
-	if ($seed) {
-		$build = ALttP\Build::where('build', $seed->build)->first();
-		if (!$build) {
-			abort(404);
-		}
-		return view('patch_from_hash', [
-			'hash' => $hash,
-			'md5' => $build->hash,
-			'patch' => $build->patch,
-		]);
-	}
-	abort(404);
+    Route::get('h/{hash}', static function ($lang, $hash) {
+        $seed = ALttP\Seed::where('hash', $hash)->first();
+        if ($seed) {
+            $build = ALttP\Build::where('build', $seed->build)->first();
+            if (!$build) {
+                abort(404);
+            }
+            return view('patch_from_hash', [
+                'hash' => $hash,
+                'md5' => $build->hash,
+                'seed' => $seed,
+                'bpsLocation' => sprintf(
+                    '/bps/%s.bps',
+                    $build->hash
+                ),
+                'spoiler' => json_decode($seed->spoiler),
+            ]);
+        }
+        abort(404);
+    });
 });

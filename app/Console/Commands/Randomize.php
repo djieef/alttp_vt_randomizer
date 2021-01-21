@@ -1,174 +1,244 @@
-<?php namespace ALttP\Console\Commands;
+<?php
 
+namespace ALttP\Console\Commands;
+
+use ALttP\Boss;
 use ALttP\Item;
 use ALttP\Randomizer;
 use ALttP\Rom;
+use ALttP\Support\Zspr;
 use ALttP\World;
+use Hashids\Hashids;
 use Illuminate\Console\Command;
 
-class Randomize extends Command {
-	/**
-	 * The name and signature of the console command.
-	 *
-	 * @var string
-	 */
-	protected $signature = 'alttp:randomize {input_file : base rom to randomize}'
-		. ' {output_directory : where to place randomized rom}'
-		. ' {--unrandomized : do not apply randomization to the rom}'
-		. ' {--vanilla : set game to vanilla item locations}'
-		. ' {--debug : enable BAGE mode}'
-		. ' {--spoiler : generate a spoiler file}'
-		. ' {--difficulty=normal : set difficulty}'
-		. ' {--variation=none : set variation}'
-		. ' {--logic=NoMajorGlitches : set logic}'
-		. ' {--heartbeep=half : set heart beep speed}'
-		. ' {--skip-md5 : do not validate md5 of base rom}'
-		. ' {--trace : enable SRAM trace}'
-		. ' {--seed= : set seed number}'
-		. ' {--bulk=1 : generate multiple roms}'
-		. ' {--goal=ganon : set game goal}'
-		. ' {--mode=standard : set game mode}'
-		. ' {--sprite= : sprite/rom file to change links graphics}'
-		. ' {--no-rom : no not generate output rom}'
-		. ' {--no-music : mute all music}'
-		. ' {--fast-menu : enable fast menu}';
+/**
+ * Run randomizer as command.
+ */
+class Randomize extends Command
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'alttp:randomize {input_file : base rom to randomize}'
+        . ' {output_directory : where to place randomized rom}'
+        . ' {--unrandomized : do not apply randomization to the rom}'
+        . ' {--spoiler : generate a spoiler file}'
+        . ' {--heartbeep=half : set heart beep speed}'
+        . ' {--skip-md5 : do not validate md5 of base rom}'
+        . ' {--tournament : enable tournament mode}'
+        . ' {--bulk=1 : generate multiple roms}'
+        . ' {--sprite= : sprite file to change links graphics [zspr format]}'
+        . ' {--no-rom : do not generate output rom}'
+        . ' {--no-music : mute all music}'
+        . ' {--menu-speed=normal : menu speed}'
+        . ' {--goal=ganon : set game goal}'
+        . ' {--state=standard : set game state}'
+        . ' {--weapons=randomized : set weapons mode}'
+        . ' {--glitches=none : set glitches}'
+        . ' {--crystals_ganon=7 : set ganon crystal requirement}'
+        . ' {--crystals_tower=7 : set ganon tower crystal requirement}'
+        . ' {--item_placement=basic : set item placement rules}'
+        . ' {--dungeon_items=standard : set dungeon item placement}'
+        . ' {--accessibility=item : set item/location accessibility}'
+        . ' {--hints=on : set hints on or off}'
+        . ' {--item_pool=normal : set item pool}'
+        . ' {--item_functionality=normal : set item functionality}';
 
-	/**
-	 * The console command description.
-	 *
-	 * @var string
-	 */
-	protected $description = 'Generate a randomized rom.';
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Generate a randomized rom.';
 
-	protected $reset_patch;
+    /** @var array */
+    protected $reset_patch;
 
-	/**
-	 * Execute the console command.
-	 *
-	 * @return mixed
-	 */
-	public function handle() {
-		if (!is_readable($this->argument('input_file'))) {
-			return $this->error('Source File not readable');
-		}
+    /**
+     * Execute the console command.
+     *
+     * @return mixed
+     */
+    public function handle()
+    {
+        ini_set('memory_limit', '512M');
+        $hasher = new Hashids('local', 15);
 
-		if (!is_dir($this->argument('output_directory')) || !is_writable($this->argument('output_directory'))) {
-			return $this->error('Target Directory not writable');
-		}
+        if (
+            !is_string($this->option('glitches'))
+            || !is_string($this->option('goal'))
+            || !is_string($this->option('state'))
+            || !is_string($this->option('weapons'))
+            || !is_string($this->option('menu-speed'))
+        ) {
+            $this->error('option not string');
 
-		$bulk = ($this->option('seed') == null) ? $this->option('bulk') : 1;
+            return 101;
+        }
 
-		for ($i = 0; $i < $bulk; $i++) {
-			$rom = new Rom($this->argument('input_file'));
+        $filename = vsprintf('%s/alttpr_%s_%s_%s_%%s.%%s', [
+            $this->argument('output_directory'),
+            $this->option('glitches'),
+            $this->option('state'),
+            $this->option('goal'),
+        ]);
 
-			if (!$this->option('skip-md5') && !$rom->checkMD5()) {
-				$rom->resize();
+        if (!is_string($this->argument('input_file')) || !is_readable($this->argument('input_file'))) {
+            $this->error('Source File not readable');
+            return 1;
+        }
 
-				$rom->applyPatch($this->resetPatch());
-			}
+        if (
+            !is_string($this->argument('output_directory'))
+            || !is_dir($this->argument('output_directory'))
+            || !is_writable($this->argument('output_directory'))
+        ) {
+            $this->error('Target Directory not writable');
+            return 2;
+        }
 
-			if (!$this->option('skip-md5') && !$rom->checkMD5()) {
-				return $this->error('MD5 check failed :(');
-			}
+        if (is_array($this->option('bulk'))) {
+            $this->error('`bulk` cannot be an array');
 
-			$rom->setDebugMode($this->option('debug'));
+            return 101;
+        }
 
-			$rom->setHeartBeepSpeed($this->option('heartbeep'));
+        $bulk = (int) ($this->option('bulk') ?? 1);
 
-			$rom->setSRAMTrace($this->option('trace'));
+        for ($i = 0; $i < $bulk; $i++) {
+            Item::clearCache();
+            Boss::clearCache();
+            $rom = new Rom($this->argument('input_file'));
+            $hash = $hasher->encode((int) (microtime(true) * 1000));
 
-			// break out for unrandomized/vanilla base game
-			if ($this->option('vanilla')) {
-				$rom = $this->setVanilla($rom);
-				$output_file = sprintf('%s/alttp-%s-vanilla.sfc', $this->argument('output_directory'), Rom::BUILD);
-				$rom->save($output_file);
-				return $this->info(sprintf('Rom Saved: %s', $output_file));
-			}
-			if ($this->option('unrandomized')) {
-				$output_file = sprintf('%s/alttp-%s.sfc', $this->argument('output_directory'), Rom::BUILD);
-				$rom->save($output_file);
-				return $this->info(sprintf('Rom Saved: %s', $output_file));
-			}
+            if (!$this->option('skip-md5') && !$rom->checkMD5()) {
+                $rom->resize();
 
-			config(['game-mode' => $this->option('mode')]);
+                $rom->applyPatch($this->resetPatch());
+            }
 
-			$rand = new Randomizer($this->option('difficulty'), $this->option('logic'), $this->option('goal'), $this->option('variation'));
-			$rand->makeSeed($this->option('seed'));
+            if (!$this->option('skip-md5') && !$rom->checkMD5()) {
+                $this->error('MD5 check failed :(');
+                return 3;
+            }
 
-			$rand->writeToRom($rom);
-			$rom->muteMusic($this->option('no-music', false));
-			$rom->setQuickMenu($this->option('fast-menu', false));
+            if (is_string($this->option('heartbeep'))) {
+                $rom->setHeartBeepSpeed($this->option('heartbeep'));
+            }
 
-			$output_file = sprintf($this->argument('output_directory') . '/' . 'alttp - VT_%s_%s_%s_%s_%s.sfc',
-				$rand->getLogic(), $this->option('difficulty'), config('game-mode'), $this->option('variation'), $rand->getSeed());
-			if (!$this->option('no-rom', false)) {
-				if ($this->option('sprite') && is_readable($this->option('sprite'))) {
-					if (filesize($this->option('sprite')) == 28792) {
-						$sprite_graphics = file_get_contents($this->option('sprite'), false, null, 0, 0x7000);
-						$sprite_palettes = file_get_contents($this->option('sprite'), false, null, 0x7000, 120);
-					} else if (filesize($this->option('sprite')) == 1048576 || filesize($this->option('sprite')) == 2097152) {
-						$sprite_graphics = file_get_contents($this->option('sprite'), false, null, 0x80000, 0x7000);
-						$sprite_palettes = file_get_contents($this->option('sprite'), false, null, 0xDD308, 120);
-					}
-					if (isset($sprite_graphics)) {
-						$rom->write(0x80000, $sprite_graphics, false);
-						$rom->write(0xDD308, $sprite_palettes, false);
-						$rom->write(0xDEDF5, substr($sprite_palettes, 0x36, 2), false);
-						$rom->write(0xDEDF7, substr($sprite_palettes, 0x54, 2), false);
-					}
-				}
-				$rom->updateChecksum();
-				$rom->save($output_file);
-				$this->info(sprintf('Rom Saved: %s', $output_file));
-			}
-			if ($this->option('spoiler')) {
-				$spoiler_file = sprintf($this->argument('output_directory') . '/' . 'alttp - VT_%s_%s_%s_%s_%s.txt',
-					$rand->getLogic(), $this->option('difficulty'), config('game-mode'), $this->option('variation'), $rand->getSeed());
-				file_put_contents($spoiler_file, json_encode($rand->getSpoiler(), JSON_PRETTY_PRINT));
-				$this->info(sprintf('Spoiler Saved: %s', $spoiler_file));
-			}
-		}
-	}
+            // break out for unrandomized base game
+            if ($this->option('unrandomized')) {
+                $output_file = sprintf('%s/alttp-%s.sfc', $this->argument('output_directory'), Rom::BUILD);
+                $rom->save($output_file);
+                $this->info(sprintf('Rom Saved: %s', $output_file));
 
-	protected function setVanilla(Rom $rom) {
-		$world = new World($this->option('difficulty'), $this->option('logic'), $this->option('goal'));
-		$world->setVanilla();
+                return 0;
+            }
 
-		foreach ($world->getLocations() as $location) {
-			$location->writeItem($rom);
-		}
+            $crystals_ganon = $this->option('crystals_ganon');
+            $crystals_ganon = $crystals_ganon === 'random' ? get_random_int(0, 7) : $crystals_ganon;
+            $crystals_tower = $this->option('crystals_tower');
+            $crystals_tower = $crystals_tower === 'random' ? get_random_int(0, 7) : $crystals_tower;
+            $logic = [
+                'none' => 'NoGlitches',
+                'overworld_glitches' => 'OverworldGlitches',
+                'major_glitches' => 'MajorGlitches',
+                'no_logic' => 'None',
+            ][$this->option('glitches')];
 
-		$rom->setClockMode('off');
-		$rom->setHardMode(0);
+            $world = World::factory($this->option('state'), [
+                'itemPlacement' => $this->option('item_placement'),
+                'dungeonItems' => $this->option('dungeon_items'),
+                'accessibility' => $this->option('accessibility'),
+                'goal' => $this->option('goal'),
+                'crystals.ganon' => $crystals_ganon,
+                'crystals.tower' => $crystals_tower,
+                'entrances' => 'none',
+                'mode.weapons' => $this->option('weapons'),
+                'tournament' => $this->option('tournament'),
+                'spoil.Hints' => $this->option('hints'),
+                'logic' => $logic,
+                'item.pool' => $this->option('item_pool'),
+                'item.functionality' => $this->option('item_functionality'),
+                'enemizer.bossShuffle' => 'none',
+                'enemizer.enemyShuffle' => 'none',
+                'enemizer.enemyDamage' => 'default',
+                'enemizer.enemyHealth' => 'default',
+                'enemizer.potShuffle' => 'off',
+            ]);
 
-		$rom->setPyramidFairyChests(false);
-		$rom->setWishingWellChests(false);
-		$rom->setSmithyQuickItemGive(false);
+            $rand = new Randomizer([$world]);
+            $rand->randomize();
 
-		$rom->setOpenMode(false);
-		$rom->setSwordlessMode(false);
-		$rom->setGanonAgahnimRng('vanilla');
+            $world->writeToRom($rom);
+            $rom->muteMusic((bool) $this->option('no-music') ?? false);
+            $rom->setMenuSpeed($this->option('menu-speed'));
 
-		$rom->setMaxArrows();
-		$rom->setMaxBombs();
-		$rom->setStartingTime(0);
+            $output_file = sprintf($filename, $hash, 'sfc');
 
-		$rom->setSeedString(str_pad("ZELDANODENSETSU", 21, ' '));
+            if (!($this->option('no-rom') ?? false)) {
+                if ($this->option('sprite') && is_string($this->option('sprite')) && is_readable($this->option('sprite'))) {
+                    $this->info("sprite");
+                    try {
+                        $zspr = new Zspr($this->option('sprite'));
 
-		return $rom;
-	}
+                        $rom->write(0x80000, $zspr->getPixelData(), false);
+                        $rom->write(0xDD308, substr($zspr->getPaletteData(), 0, 120), false);
+                        $rom->write(0xDEDF5, substr($zspr->getPaletteData(), 120, 4), false);
+                    } catch (\Exception $e) {
+                        $this->error("Sprite not in ZSPR format");
 
-	protected function resetPatch() {
-		if ($this->reset_patch) {
-			return $this->reset_patch;
-		}
+                        return 4;
+                    }
+                }
 
-		if (is_readable(public_path('js/base2current.json'))) {
-			$patch_left = json_decode(file_get_contents(public_path('js/base2current.json')), true);
-		}
+                if ($this->option('tournament') ?? false) {
+                    $rom->setTournamentType('standard');
+                    $rom->rummageTable();
+                }
 
-		$this->reset_patch = patch_merge_minify($patch_left);
+                $rom->updateChecksum();
+                $rom->save($output_file);
 
-		return $this->reset_patch;
-	}
+                $this->info(sprintf('Rom Saved: %s', $output_file));
+            }
+
+            if ($this->option('spoiler')) {
+                $spoiler_file = sprintf($filename, $hash, 'json');
+
+                file_put_contents($spoiler_file, json_encode($world->getSpoiler(), JSON_PRETTY_PRINT));
+                $this->info(sprintf('Spoiler Saved: %s', $spoiler_file));
+            }
+        }
+    }
+
+    /**
+     * Apply base patch to rom file.
+     *
+     * @throws \Exception when base patch has no content.
+     *
+     * @return array
+     */
+    protected function resetPatch()
+    {
+        if ($this->reset_patch) {
+            return $this->reset_patch;
+        }
+
+        if (is_readable(Rom::getJsonPatchLocation())) {
+            $file_contents = file_get_contents(Rom::getJsonPatchLocation());
+
+            if ($file_contents === false) {
+                throw new \Exception('base patch not readable');
+            }
+
+            $patch_left = json_decode($file_contents, true);
+        }
+
+        $this->reset_patch = patch_merge_minify($patch_left ?? []);
+
+        return $this->reset_patch;
+    }
 }

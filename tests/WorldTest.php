@@ -3,30 +3,25 @@
 use ALttP\Item;
 use ALttP\World;
 
-class WorldTest extends TestCase {
-	public function setUp() {
-		parent::setUp();
+class WorldTest extends TestCase
+{
+    public function setUp(): void
+    {
+        parent::setUp();
 
-		$this->world = new World('test_rules', 'NoMajorGlitches');
-	}
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'logic' => 'NoGlitches']);
+    }
 
-	public function tearDown() {
-		parent::tearDown();
-		unset($this->world);
-	}
+    public function tearDown(): void
+    {
+        parent::tearDown();
+        unset($this->world);
+    }
 
-	public function testGetRegionDoesntExist() {
-		$this->assertNull($this->world->getRegion("This Region Doesn't Exist"));
-	}
+    public function testGetRegionDoesntExist()
+    {
+        $this->expectException(\ErrorException::class);
 
-	public function testSetVanillaFillsAllLocations() {
-		$this->world->setVanilla();
-
-		$this->assertEquals(0, $this->world->getEmptyLocations()->count());
-	}
-
-	public function testGetPlaythroughNormalGame() {
-		$this->world->setVanilla();
-		$this->assertArraySubset(['longest_item_chain' => 29, 'regions_visited' => 44], $this->world->getPlaythrough());
-	}
+        $this->world->getRegion("This Region Doesn't Exist");
+    }
 }

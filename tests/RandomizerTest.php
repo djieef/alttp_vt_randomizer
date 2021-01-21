@@ -1,877 +1,349 @@
 <?php
 
-use ALttP\Randomizer;
 use ALttP\Item;
+use ALttP\Randomizer;
+use ALttP\World;
 
 /**
  * These test may have to be updated on any Logic change that adjusts the pooling of the RNG
  */
-class RandomizerTest extends TestCase {
-	public function setUp() {
-		parent::setUp();
-		$this->randomizer = new Randomizer('test_rules');
-	}
+class RandomizerTest extends TestCase
+{
+    public function setUp(): void
+    {
+        parent::setUp();
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'accessibility' => 'full']);
+        $this->randomizer = new Randomizer([$this->world]);
+    }
 
-	public function tearDown() {
-		parent::tearDown();
-		unset($this->randomizer);
-	}
+    public function tearDown(): void
+    {
+        parent::tearDown();
+        unset($this->randomizer);
+        unset($this->world);
+    }
 
-	public function testGetSeedIsNullBeforeRandomization() {
-		$this->assertNull($this->randomizer->getSeed());
-	}
+    /**
+     * @group crystals
+     */
+    public function testCrystalsNotRandomizedByConfigCrossWorld()
+    {
+        Config::set('prize.crossWorld', true);
+        Config::set('prize.shuffleCrystals', false);
 
-	public function testGetSeedIsNotNullAfterRandomization() {
-		$this->randomizer->makeSeed();
+        $this->randomizer->randomize();
+        $this->assertEquals([
+            Item::get('Crystal1', $this->world),
+            Item::get('Crystal2', $this->world),
+            Item::get('Crystal3', $this->world),
+            Item::get('Crystal4', $this->world),
+            Item::get('Crystal5', $this->world),
+            Item::get('Crystal6', $this->world),
+            Item::get('Crystal7', $this->world),
+        ], [
+            $this->world->getLocation("Palace of Darkness - Prize")->getItem(),
+            $this->world->getLocation("Swamp Palace - Prize")->getItem(),
+            $this->world->getLocation("Skull Woods - Prize")->getItem(),
+            $this->world->getLocation("Thieves' Town - Prize")->getItem(),
+            $this->world->getLocation("Ice Palace - Prize")->getItem(),
+            $this->world->getLocation("Misery Mire - Prize")->getItem(),
+            $this->world->getLocation("Turtle Rock - Prize")->getItem(),
+        ]);
+    }
 
-		$this->assertNotNull($this->randomizer->getSeed());
-	}
+    /**
+     * @group crystals
+     */
+    public function testCrystalsNotRandomizedByConfigNoCrossWorld()
+    {
+        Config::set('prize.crossWorld', false);
+        Config::set('prize.shuffleCrystals', false);
 
-	/**
-	 * @group crystals
-	 */
-	public function testCrystalsNotRandomizedByConfigCrossWorld() {
-		Config::set('alttp.test_rules.prize.crossWorld', true);
-		Config::set('alttp.test_rules.prize.shuffleCrystals', false);
+        $this->randomizer->randomize();
 
-		$this->randomizer->makeSeed(1337);
-		$this->assertEquals([
-			Item::get('Crystal1'),
-			Item::get('Crystal2'),
-			Item::get('Crystal3'),
-			Item::get('Crystal4'),
-			Item::get('Crystal5'),
-			Item::get('Crystal6'),
-			Item::get('Crystal7'),
-		], [
-			$this->randomizer->getWorld()->getLocation("Palace of Darkness - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Swamp Palace - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Skull Woods - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Thieves' Town - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Ice Palace - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Misery Mire - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Turtle Rock - Prize")->getItem(),
-		]);
-	}
-
-	/**
-	 * @group crystals
-	 */
-	public function testCrystalsNotRandomizedByConfigNoCrossWorld() {
-		Config::set('alttp.test_rules.prize.crossWorld', false);
-		Config::set('alttp.test_rules.prize.shuffleCrystals', false);
-
-		$this->randomizer->makeSeed(1337);
-
-		$this->assertEquals([
-			Item::get('Crystal1'),
-			Item::get('Crystal2'),
-			Item::get('Crystal3'),
-			Item::get('Crystal4'),
-			Item::get('Crystal5'),
-			Item::get('Crystal6'),
-			Item::get('Crystal7'),
-		], [
-			$this->randomizer->getWorld()->getLocation("Palace of Darkness - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Swamp Palace - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Skull Woods - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Thieves' Town - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Ice Palace - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Misery Mire - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Turtle Rock - Prize")->getItem(),
-		]);
-	}
+        $this->assertEquals([
+            Item::get('Crystal1', $this->world),
+            Item::get('Crystal2', $this->world),
+            Item::get('Crystal3', $this->world),
+            Item::get('Crystal4', $this->world),
+            Item::get('Crystal5', $this->world),
+            Item::get('Crystal6', $this->world),
+            Item::get('Crystal7', $this->world),
+        ], [
+            $this->world->getLocation("Palace of Darkness - Prize")->getItem(),
+            $this->world->getLocation("Swamp Palace - Prize")->getItem(),
+            $this->world->getLocation("Skull Woods - Prize")->getItem(),
+            $this->world->getLocation("Thieves' Town - Prize")->getItem(),
+            $this->world->getLocation("Ice Palace - Prize")->getItem(),
+            $this->world->getLocation("Misery Mire - Prize")->getItem(),
+            $this->world->getLocation("Turtle Rock - Prize")->getItem(),
+        ]);
+    }
 
 
-	/**
-	 * @group pendants
-	 */
-	public function testPendantsNotRandomizedByConfigNoCrossWorld() {
-		Config::set('alttp.test_rules.prize.crossWorld', false);
-		Config::set('alttp.test_rules.prize.shufflePendants', false);
+    /**
+     * @group pendants
+     */
+    public function testPendantsNotRandomizedByConfigNoCrossWorld()
+    {
+        Config::set('prize.crossWorld', false);
+        Config::set('prize.shufflePendants', false);
 
-		$this->randomizer->makeSeed(1337);
+        $this->randomizer->randomize();
 
-		$this->assertEquals([
-			Item::get('PendantOfCourage'),
-			Item::get('PendantOfPower'),
-			Item::get('PendantOfWisdom'),
-		], [
-			$this->randomizer->getWorld()->getLocation("Eastern Palace - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Desert Palace - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Tower of Hera - Prize")->getItem(),
-		]);
-	}
+        $this->assertEquals([
+            Item::get('PendantOfCourage', $this->world),
+            Item::get('PendantOfPower', $this->world),
+            Item::get('PendantOfWisdom', $this->world),
+        ], [
+            $this->world->getLocation("Eastern Palace - Prize")->getItem(),
+            $this->world->getLocation("Desert Palace - Prize")->getItem(),
+            $this->world->getLocation("Tower of Hera - Prize")->getItem(),
+        ]);
+    }
 
-	/**
-	 * @group pendants
-	 */
-	public function testPendantsNotRandomizedByConfigCrossWorld() {
-		Config::set('alttp.test_rules.prize.crossWorld', true);
-		Config::set('alttp.test_rules.prize.shufflePendants', false);
+    /**
+     * @group pendants
+     */
+    public function testPendantsNotRandomizedByConfigCrossWorld()
+    {
+        Config::set('prize.crossWorld', true);
+        Config::set('prize.shufflePendants', false);
 
-		$this->randomizer->makeSeed(1337);
+        $this->randomizer->randomize();
 
-		$this->assertEquals([
-			Item::get('PendantOfCourage'),
-			Item::get('PendantOfPower'),
-			Item::get('PendantOfWisdom'),
-		], [
-			$this->randomizer->getWorld()->getLocation("Eastern Palace - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Desert Palace - Prize")->getItem(),
-			$this->randomizer->getWorld()->getLocation("Tower of Hera - Prize")->getItem(),
-		]);
-	}
-
-	/**
-	 * Adjust this test and increment Logic on Randomizer if this fails.
-	 *
-	 * @group logic
-	 */
-	public function testLogicHasntChangedNoMajorGlitches() {
-		$this->randomizer->makeSeed(1337);
-		$loc_item_array = $this->randomizer->getWorld()->getLocations()->map(function($loc){
-			return $loc->getItem()->getName();
-		});
-
-		$this->assertEquals([
-			"Master Sword Pedestal" => "PieceOfHeart",
-			"Link's Uncle" => "ProgressiveSword",
-			"Secret Passage" => "Boomerang",
-			"King's Tomb" => "TwentyRupees",
-			"Floodgate Chest" => "FiftyRupees",
-			"Link's House" => "Hookshot",
-			"Kakariko Tavern" => "TwentyRupees",
-			"Chicken House" => "BombUpgrade5",
-			"Aginah's Cave" => "ProgressiveSword",
-			"Sahasrahla's Hut - Left" => "BottleWithRedPotion",
-			"Sahasrahla's Hut - Middle" => "BossHeartContainer",
-			"Sahasrahla's Hut - Right" => "BossHeartContainer",
-			"Kakriko Well - Top" => "Hammer",
-			"Kakriko Well - Left" => "BossHeartContainer",
-			"Kakriko Well - Middle" => "FiftyRupees",
-			"Kakriko Well - Right" => "Bow",
-			"Kakriko Well - Bottom" => "Ether",
-			"Blind's Hideout - Top" => "ThreeHundredRupees",
-			"Blind's Hideout - Left" => "ProgressiveGlove",
-			"Blind's Hideout - Right" => "Bombos",
-			"Blind's Hideout - Far Left" => "BugCatchingNet",
-			"Blind's Hideout - Far Right" => "FiftyRupees",
-			"Pegasus Rocks" => "BombUpgrade5",
-			"Mini Moldorm Cave - Far Left" => "ThreeBombs",
-			"Mini Moldorm Cave - Left" => "ProgressiveShield",
-			"Mini Moldorm Cave - Right" => "ArrowUpgrade5",
-			"Mini Moldorm Cave - Far Right" => "OcarinaInactive",
-			"Ice Rod Cave" => "ProgressiveSword",
-			"Bottle Merchant" => "TwentyRupees",
-			"Sahasrahla" => "Mushroom",
-			"Magic Bat" => "ArrowUpgrade5",
-			"Sick Kid" => "FiveRupees",
-			"Hobo" => "BossHeartContainer",
-			"Bombos Tablet" => "ThreeBombs",
-			"King Zora" => "PieceOfHeart",
-			"Lost Woods Hideout" => "ThreeBombs",
-			"Lumberjack Tree" => "PieceOfHeart",
-			"Cave 45" => "HalfMagic",
-			"Graveyard Ledge" => "TwentyRupees",
-			"Checkerboard Cave" => "ProgressiveArmor",
-			"Mini Moldorm Cave - NPC" => "TwentyRupees",
-			"Library" => "FiftyRupees",
-			"Mushroom" => "ThreeBombs",
-			"Potion Shop" => "TwentyRupees",
-			"Maze Race" => "BossHeartContainer",
-			"Desert Ledge" => "SilverArrowUpgrade",
-			"Lake Hylia Island" => "CaneOfByrna",
-			"Sunken Treasure" => "TwentyRupees",
-			"Zora's Ledge" => "Lamp",
-			"Flute Spot" => "TenArrows",
-			"Waterfall Fairy - Left" => "TenArrows",
-			"Waterfall Fairy - Right" => "TenArrows",
-			"Sanctuary" => "FiveRupees",
-			"Sewers - Secret Room - Left" => "PieceOfHeart",
-			"Sewers - Secret Room - Middle" => "MapH2",
-			"Sewers - Secret Room - Right" => "ArrowUpgrade5",
-			"Sewers - Dark Cross" => "Arrow",
-			"Hyrule Castle - Boomerang Chest" => "BossHeartContainer",
-			"Hyrule Castle - Map Chest" => "KeyH2",
-			"Hyrule Castle - Zelda's Cell" => "Bottle",
-			"Eastern Palace - Compass Chest" => "BossHeartContainer",
-			"Eastern Palace - Big Chest" => "CompassP1",
-			"Eastern Palace - Cannonball Chest" => "BottleWithFairy",
-			"Eastern Palace - Big Key Chest" => "BigKeyP1",
-			"Eastern Palace - Map Chest" => "OneRupee",
-			"Eastern Palace - Armos Knights" => "MapP1",
-			"Eastern Palace - Prize" => "Crystal4",
-			"Desert Palace - Big Chest" => "BossHeartContainer",
-			"Desert Palace - Map Chest" => "Shovel",
-			"Desert Palace - Torch" => "KeyP2",
-			"Desert Palace - Big Key Chest" => "BigKeyP2",
-			"Desert Palace - Compass Chest" => "CompassP2",
-			"Desert Palace - Lanmolas'" => "MapP2",
-			"Desert Palace - Prize" => "PendantOfPower",
-			"Old Man" => "MoonPearl",
-			"Spectacle Rock Cave" => "ThreeBombs",
-			"Ether Tablet" => "PieceOfHeart",
-			"Spectacle Rock" => "BossHeartContainer",
-			"Spiral Cave" => "TwentyRupees",
-			"Mimic Cave" => "TwentyRupees",
-			"Paradox Cave Lower - Far Left" => "PieceOfHeart",
-			"Paradox Cave Lower - Left" => "FiveRupees",
-			"Paradox Cave Lower - Right" => "TwentyRupees",
-			"Paradox Cave Lower - Far Right" => "BossHeartContainer",
-			"Paradox Cave Lower - Middle" => "PieceOfHeart",
-			"Paradox Cave Upper - Left" => "Quake",
-			"Paradox Cave Upper - Right" => "TwentyRupees",
-			"Floating Island" => "ThreeBombs",
-			"Tower of Hera - Big Key Chest" => "MapP3",
-			"Tower of Hera - Basement Cage" => "PieceOfHeart",
-			"Tower of Hera - Map Chest" => "BigKeyP3",
-			"Tower of Hera - Compass Chest" => "KeyP3",
-			"Tower of Hera - Big Chest" => "Flippers",
-			"Tower of Hera - Moldorm" => "CompassP3",
-			"Tower of Hera - Prize" => "Crystal2",
-			"Castle Tower - Room 03" => "KeyA1",
-			"Castle Tower - Dark Maze" => "KeyA1",
-			"Agahnim" => "DefeatAgahnim",
-			"Superbunny Cave - Top" => "TwentyRupees",
-			"Superbunny Cave - Bottom" => "ArrowUpgrade10",
-			"Hookshot Cave - Top Right" => "TwentyRupees",
-			"Hookshot Cave - Top Left" => "PieceOfHeart",
-			"Hookshot Cave - Bottom Left" => "FireRod",
-			"Hookshot Cave - Bottom Right" => "BombUpgrade10",
-			"Spike Cave" => "ArrowUpgrade5",
-			"Catfish" => "TwentyRupees",
-			"Pyramid" => "RedBoomerang",
-			"Pyramid Fairy - Sword" => "L1Sword",
-			"Pyramid Fairy - Bow" => "BowAndArrows",
-			"Ganon" => "DefeatGanon",
-			"Pyramid Fairy - Left" => "PieceOfHeart",
-			"Pyramid Fairy - Right" => "PieceOfHeart",
-			"Brewery" => "TwentyRupees",
-			"C-Shaped House" => "PieceOfHeart",
-			"Chest Game" => "ThreeHundredRupees",
-			"Hammer Pegs" => "TenArrows",
-			"Bumper Cave" => "PieceOfHeart",
-			"Blacksmith" => "TwentyRupees",
-			"Purple Chest" => "TwentyRupees",
-			"Hype Cave - Top" => "TenArrows",
-			"Hype Cave - Middle Right" => "BombUpgrade5",
-			"Hype Cave - Middle Left" => "BombUpgrade5",
-			"Hype Cave - Bottom" => "HeartContainer",
-			"Stumpy" => "ThreeHundredRupees",
-			"Hype Cave - NPC" => "OneRupee",
-			"Digging Game" => "ThreeBombs",
-			"Mire Shed - Left" => "ThreeHundredRupees",
-			"Mire Shed - Right" => "PieceOfHeart",
-			"Palace of Darkness - Shooter Room" => "KeyD1",
-			"Palace of Darkness - Big Key Chest" => "KeyD1",
-			"Palace of Darkness - The Arena - Ledge" => "KeyD1",
-			"Palace of Darkness - The Arena - Bridge" => "BigKeyD1",
-			"Palace of Darkness - Stalfos Basement" => "KeyD1",
-			"Palace of Darkness - Map Chest" => "KeyD1",
-			"Palace of Darkness - Big Chest" => "BookOfMudora",
-			"Palace of Darkness - Compass Chest" => "PieceOfHeart",
-			"Palace of Darkness - Harmless Hellway" => "ProgressiveGlove",
-			"Palace of Darkness - Dark Basement - Left" => "KeyD1",
-			"Palace of Darkness - Dark Basement - Right" => "CaneOfSomaria",
-			"Palace of Darkness - Dark Maze - Top" => "MapD1",
-			"Palace of Darkness - Dark Maze - Bottom" => "CompassD1",
-			"Palace of Darkness - Helmasaur King" => "BombUpgrade5",
-			"Palace of Darkness - Prize" => "PendantOfCourage",
-			"Swamp Palace - Entrance" => "KeyD2",
-			"Swamp Palace - Big Chest" => "MapD2",
-			"Swamp Palace - Big Key Chest" => "BigKeyD2",
-			"Swamp Palace - Map Chest" => "BottleWithRedPotion",
-			"Swamp Palace - West Chest" => "CompassD2",
-			"Swamp Palace - Compass Chest" => "TwentyRupees",
-			"Swamp Palace - Flooded Room - Left" => "FiftyRupees",
-			"Swamp Palace - Flooded Room - Right" => "TwentyRupees",
-			"Swamp Palace - Waterfall Room" => "TwentyRupees",
-			"Swamp Palace - Arrghus" => "ArrowUpgrade5",
-			"Swamp Palace - Prize" => "Crystal3",
-			"Skull Woods - Big Chest" => "KeyD3",
-			"Skull Woods - Big Key Chest" => "PieceOfHeart",
-			"Skull Woods - Compass Chest" => "MapD3",
-			"Skull Woods - Map Chest" => "KeyD3",
-			"Skull Woods - Bridge Room" => "FiveRupees",
-			"Skull Woods - Pot Prison" => "BigKeyD3",
-			"Skull Woods - Pinball Room" => "KeyD3",
-			"Skull Woods - Mothula" => "CompassD3",
-			"Skull Woods - Prize" => "Crystal1",
-			"Thieves' Town - Attic" => "MapD4",
-			"Thieves' Town - Big Key Chest" => "BigKeyD4",
-			"Thieves' Town - Map Chest" => "ArrowUpgrade5",
-			"Thieves' Town - Compass Chest" => "KeyD4",
-			"Thieves' Town - Ambush Chest" => "ProgressiveShield",
-			"Thieves' Town - Big Chest" => "ProgressiveArmor",
-			"Thieves' Town - Blind's Cell" => "TwentyRupees",
-			"Thieves' Town - Blind" => "CompassD4",
-			"Thieves' Town - Prize" => "Crystal7",
-			"Ice Palace - Big Key Chest" => "MapD5",
-			"Ice Palace - Compass Chest" => "IceRod",
-			"Ice Palace - Map Chest" => "CompassD5",
-			"Ice Palace - Spike Room" => "BigKeyD5",
-			"Ice Palace - Freezor Chest" => "PegasusBoots",
-			"Ice Palace - Iced T Room" => "PieceOfHeart",
-			"Ice Palace - Big Chest" => "KeyD5",
-			"Ice Palace - Kholdstare" => "KeyD5",
-			"Ice Palace - Prize" => "PendantOfWisdom",
-			"Misery Mire - Big Chest" => "KeyD6",
-			"Misery Mire - Main Lobby" => "BigKeyD6",
-			"Misery Mire - Big Key Chest" => "Powder",
-			"Misery Mire - Compass Chest" => "CompassD6",
-			"Misery Mire - Bridge Chest" => "MapD6",
-			"Misery Mire - Map Chest" => "MagicMirror",
-			"Misery Mire - Spike Chest" => "KeyD6",
-			"Misery Mire - Vitreous" => "KeyD6",
-			"Misery Mire - Prize" => "Crystal5",
-			"Turtle Rock - Chain Chomps" => "Cape",
-			"Turtle Rock - Compass Chest" => "KeyD7",
-			"Turtle Rock - Roller Room - Left" => "BigKeyD7",
-			"Turtle Rock - Roller Room - Right" => "KeyD7",
-			"Turtle Rock - Big Chest" => "CompassD7",
-			"Turtle Rock - Big Key Chest" => "ProgressiveSword",
-			"Turtle Rock - Crystaroller Room" => "KeyD7",
-			"Turtle Rock - Eye Bridge - Bottom Left" => "MapD7",
-			"Turtle Rock - Eye Bridge - Bottom Right" => "FiftyRupees",
-			"Turtle Rock - Eye Bridge - Top Left" => "KeyD7",
-			"Turtle Rock - Eye Bridge - Top Right" => "TwentyRupees",
-			"Turtle Rock - Trinexx" => "PieceOfHeart",
-			"Turtle Rock - Prize" => "Crystal6",
-			"Ganon's Tower - Bob's Torch" => "KeyA2",
-			"Ganon's Tower - DMs Room - Top Left" => "PieceOfHeart",
-			"Ganon's Tower - DMs Room - Top Right" => "KeyA2",
-			"Ganon's Tower - DMs Room - Bottom Left" => "ThreeBombs",
-			"Ganon's Tower - DMs Room - Bottom Right" => "ThreeBombs",
-			"Ganon's Tower - Randomizer Room - Top Left" => "ThreeHundredRupees",
-			"Ganon's Tower - Randomizer Room - Top Right" => "BigKeyA2",
-			"Ganon's Tower - Randomizer Room - Bottom Left" => "ThreeBombs",
-			"Ganon's Tower - Randomizer Room - Bottom Right" => "FiftyRupees",
-			"Ganon's Tower - Firesnake Room" => "PieceOfHeart",
-			"Ganon's Tower - Map Chest" => "TwentyRupees",
-			"Ganon's Tower - Big Chest" => "PieceOfHeart",
-			"Ganon's Tower - Hope Room - Left" => "KeyA2",
-			"Ganon's Tower - Hope Room - Right" => "ProgressiveShield",
-			"Ganon's Tower - Bob's Chest" => "PieceOfHeart",
-			"Ganon's Tower - Tile Room" => "KeyA2",
-			"Ganon's Tower - Compass Room - Top Left" => "TwentyRupees",
-			"Ganon's Tower - Compass Room - Top Right" => "TwentyRupees",
-			"Ganon's Tower - Compass Room - Bottom Left" => "TwentyRupees",
-			"Ganon's Tower - Compass Room - Bottom Right" => "BombUpgrade5",
-			"Ganon's Tower - Big Key Chest" => "TwentyRupees",
-			"Ganon's Tower - Big Key Room - Left" => "PieceOfHeart",
-			"Ganon's Tower - Big Key Room - Right" => "OneHundredRupees",
-			"Ganon's Tower - Mini Helmasaur Room - Left" => "PieceOfHeart",
-			"Ganon's Tower - Mini Helmasaur Room - Right" => "CompassA2",
-			"Ganon's Tower - Pre-Moldorm Chest" => "TwentyRupees",
-			"Ganon's Tower - Moldorm Chest" => "MapA2",
-			"Agahnim 2" => "DefeatAgahnim2",
-			"Turtle Rock Medallion" => "Quake",
-			"Misery Mire Medallion" => "Bombos",
-			"Waterfall Bottle" => "BottleWithBee",
-			"Pyramid Bottle" => "BottleWithBluePotion",
-		], $loc_item_array);
-	}
-
-	/**
-	 * Adjust this test and increment Logic on Randomizer if this fails.
-	 *
-	 * @group logic
-	 */
-	public function testLogicHasntChangedOverworldGlitches() {
-		$this->randomizer = new Randomizer('test_rules', 'OverworldGlitches');
-		$this->randomizer->makeSeed(1337);
-		$loc_item_array = $this->randomizer->getWorld()->getLocations()->map(function($loc){
-			return $loc->getItem()->getName();
-		});
-
-		$this->assertEquals([
-			"Master Sword Pedestal" => "PieceOfHeart",
-			"Link's Uncle" => "ProgressiveSword",
-			"Secret Passage" => "ArrowUpgrade5",
-			"King's Tomb" => "TwentyRupees",
-			"Floodgate Chest" => "FiftyRupees",
-			"Link's House" => "ProgressiveGlove",
-			"Kakariko Tavern" => "TwentyRupees",
-			"Chicken House" => "PieceOfHeart",
-			"Aginah's Cave" => "ProgressiveSword",
-			"Sahasrahla's Hut - Left" => "BottleWithRedPotion",
-			"Sahasrahla's Hut - Middle" => "BossHeartContainer",
-			"Sahasrahla's Hut - Right" => "BossHeartContainer",
-			"Kakriko Well - Top" => "OcarinaInactive",
-			"Kakriko Well - Left" => "BossHeartContainer",
-			"Kakriko Well - Middle" => "FiftyRupees",
-			"Kakriko Well - Right" => "Hammer",
-			"Kakriko Well - Bottom" => "Ether",
-			"Blind's Hideout - Top" => "FiveRupees",
-			"Blind's Hideout - Left" => "ProgressiveGlove",
-			"Blind's Hideout - Right" => "Bombos",
-			"Blind's Hideout - Far Left" => "BugCatchingNet",
-			"Blind's Hideout - Far Right" => "FiftyRupees",
-			"Pegasus Rocks" => "BombUpgrade5",
-			"Mini Moldorm Cave - Far Left" => "ThreeBombs",
-			"Mini Moldorm Cave - Left" => "ProgressiveShield",
-			"Mini Moldorm Cave - Right" => "ArrowUpgrade5",
-			"Mini Moldorm Cave - Far Right" => "ThreeBombs",
-			"Ice Rod Cave" => "ProgressiveSword",
-			"Bottle Merchant" => "TwentyRupees",
-			"Sahasrahla" => "Mushroom",
-			"Magic Bat" => "ArrowUpgrade5",
-			"Sick Kid" => "TwentyRupees",
-			"Hobo" => "ThreeBombs",
-			"Bombos Tablet" => "ThreeBombs",
-			"King Zora" => "PieceOfHeart",
-			"Lost Woods Hideout" => "ThreeBombs",
-			"Lumberjack Tree" => "PieceOfHeart",
-			"Cave 45" => "HalfMagic",
-			"Graveyard Ledge" => "TwentyRupees",
-			"Checkerboard Cave" => "BombUpgrade5",
-			"Mini Moldorm Cave - NPC" => "TwentyRupees",
-			"Library" => "FiftyRupees",
-			"Mushroom" => "ThreeBombs",
-			"Potion Shop" => "TwentyRupees",
-			"Maze Race" => "BossHeartContainer",
-			"Desert Ledge" => "SilverArrowUpgrade",
-			"Lake Hylia Island" => "CaneOfByrna",
-			"Sunken Treasure" => "TwentyRupees",
-			"Zora's Ledge" => "Lamp",
-			"Flute Spot" => "TenArrows",
-			"Waterfall Fairy - Left" => "TenArrows",
-			"Waterfall Fairy - Right" => "FiftyRupees",
-			"Sanctuary" => "TwentyRupees",
-			"Sewers - Secret Room - Left" => "ProgressiveSword",
-			"Sewers - Secret Room - Middle" => "MapH2",
-			"Sewers - Secret Room - Right" => "FiveRupees",
-			"Sewers - Dark Cross" => "Arrow",
-			"Hyrule Castle - Boomerang Chest" => "BossHeartContainer",
-			"Hyrule Castle - Map Chest" => "KeyH2",
-			"Hyrule Castle - Zelda's Cell" => "Bottle",
-			"Eastern Palace - Compass Chest" => "BossHeartContainer",
-			"Eastern Palace - Big Chest" => "CompassP1",
-			"Eastern Palace - Cannonball Chest" => "PieceOfHeart",
-			"Eastern Palace - Big Key Chest" => "BigKeyP1",
-			"Eastern Palace - Map Chest" => "OneRupee",
-			"Eastern Palace - Armos Knights" => "MapP1",
-			"Eastern Palace - Prize" => "Crystal4",
-			"Desert Palace - Big Chest" => "ThreeHundredRupees",
-			"Desert Palace - Map Chest" => "Shovel",
-			"Desert Palace - Torch" => "KeyP2",
-			"Desert Palace - Big Key Chest" => "BigKeyP2",
-			"Desert Palace - Compass Chest" => "CompassP2",
-			"Desert Palace - Lanmolas'" => "MapP2",
-			"Desert Palace - Prize" => "PendantOfPower",
-			"Old Man" => "MoonPearl",
-			"Spectacle Rock Cave" => "TwentyRupees",
-			"Ether Tablet" => "TwentyRupees",
-			"Spectacle Rock" => "BossHeartContainer",
-			"Spiral Cave" => "TwentyRupees",
-			"Mimic Cave" => "TwentyRupees",
-			"Paradox Cave Lower - Far Left" => "BottleWithRedPotion",
-			"Paradox Cave Lower - Left" => "PieceOfHeart",
-			"Paradox Cave Lower - Right" => "FiveRupees",
-			"Paradox Cave Lower - Far Right" => "BossHeartContainer",
-			"Paradox Cave Lower - Middle" => "PieceOfHeart",
-			"Paradox Cave Upper - Left" => "Quake",
-			"Paradox Cave Upper - Right" => "PieceOfHeart",
-			"Floating Island" => "ThreeBombs",
-			"Tower of Hera - Big Key Chest" => "MapP3",
-			"Tower of Hera - Basement Cage" => "PieceOfHeart",
-			"Tower of Hera - Map Chest" => "BigKeyP3",
-			"Tower of Hera - Compass Chest" => "KeyP3",
-			"Tower of Hera - Big Chest" => "Flippers",
-			"Tower of Hera - Moldorm" => "CompassP3",
-			"Tower of Hera - Prize" => "Crystal2",
-			"Castle Tower - Room 03" => "KeyA1",
-			"Castle Tower - Dark Maze" => "KeyA1",
-			"Agahnim" => "DefeatAgahnim",
-			"Superbunny Cave - Top" => "TwentyRupees",
-			"Superbunny Cave - Bottom" => "ArrowUpgrade10",
-			"Hookshot Cave - Top Right" => "TwentyRupees",
-			"Hookshot Cave - Top Left" => "ThreeHundredRupees",
-			"Hookshot Cave - Bottom Left" => "Bow",
-			"Hookshot Cave - Bottom Right" => "BombUpgrade10",
-			"Spike Cave" => "ArrowUpgrade5",
-			"Catfish" => "TwentyRupees",
-			"Pyramid" => "RedBoomerang",
-			"Pyramid Fairy - Sword" => "L1Sword",
-			"Pyramid Fairy - Bow" => "BowAndArrows",
-			"Ganon" => "DefeatGanon",
-			"Pyramid Fairy - Left" => "BottleWithFairy",
-			"Pyramid Fairy - Right" => "BossHeartContainer",
-			"Brewery" => "ProgressiveArmor",
-			"C-Shaped House" => "PieceOfHeart",
-			"Chest Game" => "ThreeHundredRupees",
-			"Hammer Pegs" => "TenArrows",
-			"Bumper Cave" => "PieceOfHeart",
-			"Blacksmith" => "BossHeartContainer",
-			"Purple Chest" => "TwentyRupees",
-			"Hype Cave - Top" => "TwentyRupees",
-			"Hype Cave - Middle Right" => "BombUpgrade5",
-			"Hype Cave - Middle Left" => "FiftyRupees",
-			"Hype Cave - Bottom" => "HeartContainer",
-			"Stumpy" => "TwentyRupees",
-			"Hype Cave - NPC" => "OneRupee",
-			"Digging Game" => "TwentyRupees",
-			"Mire Shed - Left" => "ThreeHundredRupees",
-			"Mire Shed - Right" => "PieceOfHeart",
-			"Palace of Darkness - Shooter Room" => "KeyD1",
-			"Palace of Darkness - Big Key Chest" => "KeyD1",
-			"Palace of Darkness - The Arena - Ledge" => "KeyD1",
-			"Palace of Darkness - The Arena - Bridge" => "BigKeyD1",
-			"Palace of Darkness - Stalfos Basement" => "KeyD1",
-			"Palace of Darkness - Map Chest" => "KeyD1",
-			"Palace of Darkness - Big Chest" => "Cape",
-			"Palace of Darkness - Compass Chest" => "PieceOfHeart",
-			"Palace of Darkness - Harmless Hellway" => "PegasusBoots",
-			"Palace of Darkness - Dark Basement - Left" => "KeyD1",
-			"Palace of Darkness - Dark Basement - Right" => "CaneOfSomaria",
-			"Palace of Darkness - Dark Maze - Top" => "MapD1",
-			"Palace of Darkness - Dark Maze - Bottom" => "CompassD1",
-			"Palace of Darkness - Helmasaur King" => "BombUpgrade5",
-			"Palace of Darkness - Prize" => "PendantOfCourage",
-			"Swamp Palace - Entrance" => "KeyD2",
-			"Swamp Palace - Big Chest" => "MapD2",
-			"Swamp Palace - Big Key Chest" => "BigKeyD2",
-			"Swamp Palace - Map Chest" => "TenArrows",
-			"Swamp Palace - West Chest" => "CompassD2",
-			"Swamp Palace - Compass Chest" => "BookOfMudora",
-			"Swamp Palace - Flooded Room - Left" => "ThreeHundredRupees",
-			"Swamp Palace - Flooded Room - Right" => "TwentyRupees",
-			"Swamp Palace - Waterfall Room" => "ThreeBombs",
-			"Swamp Palace - Arrghus" => "ArrowUpgrade5",
-			"Swamp Palace - Prize" => "Crystal3",
-			"Skull Woods - Big Chest" => "KeyD3",
-			"Skull Woods - Big Key Chest" => "PieceOfHeart",
-			"Skull Woods - Compass Chest" => "MapD3",
-			"Skull Woods - Map Chest" => "KeyD3",
-			"Skull Woods - Bridge Room" => "PieceOfHeart",
-			"Skull Woods - Pot Prison" => "BigKeyD3",
-			"Skull Woods - Pinball Room" => "KeyD3",
-			"Skull Woods - Mothula" => "CompassD3",
-			"Skull Woods - Prize" => "Crystal1",
-			"Thieves' Town - Attic" => "MapD4",
-			"Thieves' Town - Big Key Chest" => "BigKeyD4",
-			"Thieves' Town - Map Chest" => "PieceOfHeart",
-			"Thieves' Town - Compass Chest" => "KeyD4",
-			"Thieves' Town - Ambush Chest" => "ProgressiveShield",
-			"Thieves' Town - Big Chest" => "BombUpgrade5",
-			"Thieves' Town - Blind's Cell" => "FiveRupees",
-			"Thieves' Town - Blind" => "CompassD4",
-			"Thieves' Town - Prize" => "Crystal7",
-			"Ice Palace - Big Key Chest" => "MapD5",
-			"Ice Palace - Compass Chest" => "IceRod",
-			"Ice Palace - Map Chest" => "CompassD5",
-			"Ice Palace - Spike Room" => "BigKeyD5",
-			"Ice Palace - Freezor Chest" => "Hookshot",
-			"Ice Palace - Iced T Room" => "PieceOfHeart",
-			"Ice Palace - Big Chest" => "KeyD5",
-			"Ice Palace - Kholdstare" => "KeyD5",
-			"Ice Palace - Prize" => "PendantOfWisdom",
-			"Misery Mire - Big Chest" => "KeyD6",
-			"Misery Mire - Main Lobby" => "BigKeyD6",
-			"Misery Mire - Big Key Chest" => "Powder",
-			"Misery Mire - Compass Chest" => "CompassD6",
-			"Misery Mire - Bridge Chest" => "MapD6",
-			"Misery Mire - Map Chest" => "MagicMirror",
-			"Misery Mire - Spike Chest" => "KeyD6",
-			"Misery Mire - Vitreous" => "KeyD6",
-			"Misery Mire - Prize" => "Crystal5",
-			"Turtle Rock - Chain Chomps" => "FireRod",
-			"Turtle Rock - Compass Chest" => "PieceOfHeart",
-			"Turtle Rock - Roller Room - Left" => "BigKeyD7",
-			"Turtle Rock - Roller Room - Right" => "KeyD7",
-			"Turtle Rock - Big Chest" => "KeyD7",
-			"Turtle Rock - Big Key Chest" => "ArrowUpgrade5",
-			"Turtle Rock - Crystaroller Room" => "KeyD7",
-			"Turtle Rock - Eye Bridge - Bottom Left" => "MapD7",
-			"Turtle Rock - Eye Bridge - Bottom Right" => "CompassD7",
-			"Turtle Rock - Eye Bridge - Top Left" => "KeyD7",
-			"Turtle Rock - Eye Bridge - Top Right" => "TwentyRupees",
-			"Turtle Rock - Trinexx" => "ProgressiveArmor",
-			"Turtle Rock - Prize" => "Crystal6",
-			"Ganon's Tower - Bob's Torch" => "KeyA2",
-			"Ganon's Tower - DMs Room - Top Left" => "PieceOfHeart",
-			"Ganon's Tower - DMs Room - Top Right" => "KeyA2",
-			"Ganon's Tower - DMs Room - Bottom Left" => "ThreeBombs",
-			"Ganon's Tower - DMs Room - Bottom Right" => "TenArrows",
-			"Ganon's Tower - Randomizer Room - Top Left" => "PieceOfHeart",
-			"Ganon's Tower - Randomizer Room - Top Right" => "BigKeyA2",
-			"Ganon's Tower - Randomizer Room - Bottom Left" => "ThreeBombs",
-			"Ganon's Tower - Randomizer Room - Bottom Right" => "FiftyRupees",
-			"Ganon's Tower - Firesnake Room" => "PieceOfHeart",
-			"Ganon's Tower - Map Chest" => "TwentyRupees",
-			"Ganon's Tower - Big Chest" => "Boomerang",
-			"Ganon's Tower - Hope Room - Left" => "KeyA2",
-			"Ganon's Tower - Hope Room - Right" => "ProgressiveShield",
-			"Ganon's Tower - Bob's Chest" => "PieceOfHeart",
-			"Ganon's Tower - Tile Room" => "KeyA2",
-			"Ganon's Tower - Compass Room - Top Left" => "TwentyRupees",
-			"Ganon's Tower - Compass Room - Top Right" => "TwentyRupees",
-			"Ganon's Tower - Compass Room - Bottom Left" => "TwentyRupees",
-			"Ganon's Tower - Compass Room - Bottom Right" => "BombUpgrade5",
-			"Ganon's Tower - Big Key Chest" => "TwentyRupees",
-			"Ganon's Tower - Big Key Room - Left" => "PieceOfHeart",
-			"Ganon's Tower - Big Key Room - Right" => "OneHundredRupees",
-			"Ganon's Tower - Mini Helmasaur Room - Left" => "PieceOfHeart",
-			"Ganon's Tower - Mini Helmasaur Room - Right" => "CompassA2",
-			"Ganon's Tower - Pre-Moldorm Chest" => "TwentyRupees",
-			"Ganon's Tower - Moldorm Chest" => "MapA2",
-			"Agahnim 2" => "DefeatAgahnim2",
-			"Turtle Rock Medallion" => "Quake",
-			"Misery Mire Medallion" => "Bombos",
-			"Waterfall Bottle" => "BottleWithBee",
-			"Pyramid Bottle" => "BottleWithBluePotion",
-		], $loc_item_array);
-	}
-
-	/**
-	 * Adjust this test and increment Logic on Randomizer if this fails.
-	 *
-	 * @group logic
-	 */
-	public function testLogicHasntChangedMajorGlitches() {
-		$this->randomizer = new Randomizer('test_rules', 'MajorGlitches');
-		$this->randomizer->makeSeed(1337);
-		$loc_item_array = $this->randomizer->getWorld()->getLocations()->map(function($loc){
-			return $loc->getItem()->getName();
-		});
-
-		$this->assertEquals([
-			"Master Sword Pedestal" => "PieceOfHeart",
-			"Link's Uncle" => "ProgressiveSword",
-			"Secret Passage" => "ArrowUpgrade5",
-			"King's Tomb" => "TwentyRupees",
-			"Floodgate Chest" => "FiftyRupees",
-			"Link's House" => "ProgressiveGlove",
-			"Kakariko Tavern" => "TwentyRupees",
-			"Chicken House" => "PieceOfHeart",
-			"Aginah's Cave" => "ProgressiveSword",
-			"Sahasrahla's Hut - Left" => "BottleWithRedPotion",
-			"Sahasrahla's Hut - Middle" => "BossHeartContainer",
-			"Sahasrahla's Hut - Right" => "BossHeartContainer",
-			"Kakriko Well - Top" => "BookOfMudora",
-			"Kakriko Well - Left" => "BossHeartContainer",
-			"Kakriko Well - Middle" => "FiftyRupees",
-			"Kakriko Well - Right" => "Hammer",
-			"Kakriko Well - Bottom" => "Ether",
-			"Blind's Hideout - Top" => "FiveRupees",
-			"Blind's Hideout - Left" => "ProgressiveGlove",
-			"Blind's Hideout - Right" => "Bombos",
-			"Blind's Hideout - Far Left" => "BugCatchingNet",
-			"Blind's Hideout - Far Right" => "FiftyRupees",
-			"Pegasus Rocks" => "BombUpgrade5",
-			"Mini Moldorm Cave - Far Left" => "ThreeBombs",
-			"Mini Moldorm Cave - Left" => "ProgressiveShield",
-			"Mini Moldorm Cave - Right" => "ArrowUpgrade5",
-			"Mini Moldorm Cave - Far Right" => "ThreeBombs",
-			"Ice Rod Cave" => "ProgressiveSword",
-			"Bottle Merchant" => "TwentyRupees",
-			"Sahasrahla" => "Mushroom",
-			"Magic Bat" => "ArrowUpgrade5",
-			"Sick Kid" => "TwentyRupees",
-			"Hobo" => "ThreeBombs",
-			"Bombos Tablet" => "ThreeBombs",
-			"King Zora" => "PieceOfHeart",
-			"Lost Woods Hideout" => "ThreeBombs",
-			"Lumberjack Tree" => "PieceOfHeart",
-			"Cave 45" => "HalfMagic",
-			"Graveyard Ledge" => "TwentyRupees",
-			"Checkerboard Cave" => "BombUpgrade5",
-			"Mini Moldorm Cave - NPC" => "TwentyRupees",
-			"Library" => "FiftyRupees",
-			"Mushroom" => "ThreeBombs",
-			"Potion Shop" => "TwentyRupees",
-			"Maze Race" => "BossHeartContainer",
-			"Desert Ledge" => "SilverArrowUpgrade",
-			"Lake Hylia Island" => "CaneOfByrna",
-			"Sunken Treasure" => "TwentyRupees",
-			"Zora's Ledge" => "Lamp",
-			"Flute Spot" => "TenArrows",
-			"Waterfall Fairy - Left" => "TenArrows",
-			"Waterfall Fairy - Right" => "FiftyRupees",
-			"Sanctuary" => "TwentyRupees",
-			"Sewers - Secret Room - Left" => "ProgressiveSword",
-			"Sewers - Secret Room - Middle" => "MapH2",
-			"Sewers - Secret Room - Right" => "FiveRupees",
-			"Sewers - Dark Cross" => "Arrow",
-			"Hyrule Castle - Boomerang Chest" => "BossHeartContainer",
-			"Hyrule Castle - Map Chest" => "KeyH2",
-			"Hyrule Castle - Zelda's Cell" => "Bottle",
-			"Eastern Palace - Compass Chest" => "BossHeartContainer",
-			"Eastern Palace - Big Chest" => "CompassP1",
-			"Eastern Palace - Cannonball Chest" => "PieceOfHeart",
-			"Eastern Palace - Big Key Chest" => "BigKeyP1",
-			"Eastern Palace - Map Chest" => "OneRupee",
-			"Eastern Palace - Armos Knights" => "MapP1",
-			"Eastern Palace - Prize" => "Crystal4",
-			"Desert Palace - Big Chest" => "ThreeHundredRupees",
-			"Desert Palace - Map Chest" => "Shovel",
-			"Desert Palace - Torch" => "KeyP2",
-			"Desert Palace - Big Key Chest" => "BigKeyP2",
-			"Desert Palace - Compass Chest" => "CompassP2",
-			"Desert Palace - Lanmolas'" => "MapP2",
-			"Desert Palace - Prize" => "PendantOfPower",
-			"Old Man" => "MoonPearl",
-			"Spectacle Rock Cave" => "TwentyRupees",
-			"Ether Tablet" => "TwentyRupees",
-			"Spectacle Rock" => "BossHeartContainer",
-			"Spiral Cave" => "TwentyRupees",
-			"Mimic Cave" => "TwentyRupees",
-			"Paradox Cave Lower - Far Left" => "BottleWithRedPotion",
-			"Paradox Cave Lower - Left" => "PieceOfHeart",
-			"Paradox Cave Lower - Right" => "FiveRupees",
-			"Paradox Cave Lower - Far Right" => "BossHeartContainer",
-			"Paradox Cave Lower - Middle" => "PieceOfHeart",
-			"Paradox Cave Upper - Left" => "Quake",
-			"Paradox Cave Upper - Right" => "PieceOfHeart",
-			"Floating Island" => "ThreeBombs",
-			"Tower of Hera - Big Key Chest" => "MapP3",
-			"Tower of Hera - Basement Cage" => "PieceOfHeart",
-			"Tower of Hera - Map Chest" => "BigKeyP3",
-			"Tower of Hera - Compass Chest" => "KeyP3",
-			"Tower of Hera - Big Chest" => "Flippers",
-			"Tower of Hera - Moldorm" => "CompassP3",
-			"Tower of Hera - Prize" => "Crystal2",
-			"Castle Tower - Room 03" => "KeyA1",
-			"Castle Tower - Dark Maze" => "KeyA1",
-			"Agahnim" => "DefeatAgahnim",
-			"Superbunny Cave - Top" => "TwentyRupees",
-			"Superbunny Cave - Bottom" => "ArrowUpgrade10",
-			"Hookshot Cave - Top Right" => "TwentyRupees",
-			"Hookshot Cave - Top Left" => "ThreeHundredRupees",
-			"Hookshot Cave - Bottom Left" => "Bow",
-			"Hookshot Cave - Bottom Right" => "BombUpgrade10",
-			"Spike Cave" => "ArrowUpgrade5",
-			"Catfish" => "TwentyRupees",
-			"Pyramid" => "RedBoomerang",
-			"Pyramid Fairy - Sword" => "L1Sword",
-			"Pyramid Fairy - Bow" => "BowAndArrows",
-			"Ganon" => "DefeatGanon",
-			"Pyramid Fairy - Left" => "BottleWithFairy",
-			"Pyramid Fairy - Right" => "BossHeartContainer",
-			"Brewery" => "ProgressiveArmor",
-			"C-Shaped House" => "PieceOfHeart",
-			"Chest Game" => "ThreeHundredRupees",
-			"Hammer Pegs" => "TenArrows",
-			"Bumper Cave" => "PieceOfHeart",
-			"Blacksmith" => "BossHeartContainer",
-			"Purple Chest" => "TwentyRupees",
-			"Hype Cave - Top" => "TwentyRupees",
-			"Hype Cave - Middle Right" => "BombUpgrade5",
-			"Hype Cave - Middle Left" => "FiftyRupees",
-			"Hype Cave - Bottom" => "HeartContainer",
-			"Stumpy" => "TwentyRupees",
-			"Hype Cave - NPC" => "OneRupee",
-			"Digging Game" => "TwentyRupees",
-			"Mire Shed - Left" => "ThreeHundredRupees",
-			"Mire Shed - Right" => "PieceOfHeart",
-			"Palace of Darkness - Shooter Room" => "KeyD1",
-			"Palace of Darkness - Big Key Chest" => "KeyD1",
-			"Palace of Darkness - The Arena - Ledge" => "KeyD1",
-			"Palace of Darkness - The Arena - Bridge" => "BigKeyD1",
-			"Palace of Darkness - Stalfos Basement" => "KeyD1",
-			"Palace of Darkness - Map Chest" => "KeyD1",
-			"Palace of Darkness - Big Chest" => "Cape",
-			"Palace of Darkness - Compass Chest" => "PieceOfHeart",
-			"Palace of Darkness - Harmless Hellway" => "PegasusBoots",
-			"Palace of Darkness - Dark Basement - Left" => "KeyD1",
-			"Palace of Darkness - Dark Basement - Right" => "CaneOfSomaria",
-			"Palace of Darkness - Dark Maze - Top" => "MapD1",
-			"Palace of Darkness - Dark Maze - Bottom" => "CompassD1",
-			"Palace of Darkness - Helmasaur King" => "BombUpgrade5",
-			"Palace of Darkness - Prize" => "PendantOfCourage",
-			"Swamp Palace - Entrance" => "KeyD2",
-			"Swamp Palace - Big Chest" => "MapD2",
-			"Swamp Palace - Big Key Chest" => "BigKeyD2",
-			"Swamp Palace - Map Chest" => "TenArrows",
-			"Swamp Palace - West Chest" => "CompassD2",
-			"Swamp Palace - Compass Chest" => "OcarinaInactive",
-			"Swamp Palace - Flooded Room - Left" => "ThreeHundredRupees",
-			"Swamp Palace - Flooded Room - Right" => "TwentyRupees",
-			"Swamp Palace - Waterfall Room" => "ThreeBombs",
-			"Swamp Palace - Arrghus" => "ArrowUpgrade5",
-			"Swamp Palace - Prize" => "Crystal3",
-			"Skull Woods - Big Chest" => "KeyD3",
-			"Skull Woods - Big Key Chest" => "PieceOfHeart",
-			"Skull Woods - Compass Chest" => "MapD3",
-			"Skull Woods - Map Chest" => "KeyD3",
-			"Skull Woods - Bridge Room" => "PieceOfHeart",
-			"Skull Woods - Pot Prison" => "BigKeyD3",
-			"Skull Woods - Pinball Room" => "KeyD3",
-			"Skull Woods - Mothula" => "CompassD3",
-			"Skull Woods - Prize" => "Crystal1",
-			"Thieves' Town - Attic" => "MapD4",
-			"Thieves' Town - Big Key Chest" => "BigKeyD4",
-			"Thieves' Town - Map Chest" => "PieceOfHeart",
-			"Thieves' Town - Compass Chest" => "KeyD4",
-			"Thieves' Town - Ambush Chest" => "ProgressiveShield",
-			"Thieves' Town - Big Chest" => "BombUpgrade5",
-			"Thieves' Town - Blind's Cell" => "FiveRupees",
-			"Thieves' Town - Blind" => "CompassD4",
-			"Thieves' Town - Prize" => "Crystal7",
-			"Ice Palace - Big Key Chest" => "MapD5",
-			"Ice Palace - Compass Chest" => "IceRod",
-			"Ice Palace - Map Chest" => "CompassD5",
-			"Ice Palace - Spike Room" => "BigKeyD5",
-			"Ice Palace - Freezor Chest" => "Hookshot",
-			"Ice Palace - Iced T Room" => "PieceOfHeart",
-			"Ice Palace - Big Chest" => "KeyD5",
-			"Ice Palace - Kholdstare" => "KeyD5",
-			"Ice Palace - Prize" => "PendantOfWisdom",
-			"Misery Mire - Big Chest" => "KeyD6",
-			"Misery Mire - Main Lobby" => "BigKeyD6",
-			"Misery Mire - Big Key Chest" => "Powder",
-			"Misery Mire - Compass Chest" => "CompassD6",
-			"Misery Mire - Bridge Chest" => "MapD6",
-			"Misery Mire - Map Chest" => "MagicMirror",
-			"Misery Mire - Spike Chest" => "KeyD6",
-			"Misery Mire - Vitreous" => "KeyD6",
-			"Misery Mire - Prize" => "Crystal5",
-			"Turtle Rock - Chain Chomps" => "FireRod",
-			"Turtle Rock - Compass Chest" => "PieceOfHeart",
-			"Turtle Rock - Roller Room - Left" => "BigKeyD7",
-			"Turtle Rock - Roller Room - Right" => "CompassD7",
-			"Turtle Rock - Big Chest" => "KeyD7",
-			"Turtle Rock - Big Key Chest" => "ArrowUpgrade5",
-			"Turtle Rock - Crystaroller Room" => "KeyD7",
-			"Turtle Rock - Eye Bridge - Bottom Left" => "KeyD7",
-			"Turtle Rock - Eye Bridge - Bottom Right" => "MapD7",
-			"Turtle Rock - Eye Bridge - Top Left" => "KeyD7",
-			"Turtle Rock - Eye Bridge - Top Right" => "TwentyRupees",
-			"Turtle Rock - Trinexx" => "ProgressiveArmor",
-			"Turtle Rock - Prize" => "Crystal6",
-			"Ganon's Tower - Bob's Torch" => "KeyA2",
-			"Ganon's Tower - DMs Room - Top Left" => "PieceOfHeart",
-			"Ganon's Tower - DMs Room - Top Right" => "KeyA2",
-			"Ganon's Tower - DMs Room - Bottom Left" => "ThreeBombs",
-			"Ganon's Tower - DMs Room - Bottom Right" => "TenArrows",
-			"Ganon's Tower - Randomizer Room - Top Left" => "PieceOfHeart",
-			"Ganon's Tower - Randomizer Room - Top Right" => "BigKeyA2",
-			"Ganon's Tower - Randomizer Room - Bottom Left" => "ThreeBombs",
-			"Ganon's Tower - Randomizer Room - Bottom Right" => "FiftyRupees",
-			"Ganon's Tower - Firesnake Room" => "PieceOfHeart",
-			"Ganon's Tower - Map Chest" => "TwentyRupees",
-			"Ganon's Tower - Big Chest" => "Boomerang",
-			"Ganon's Tower - Hope Room - Left" => "KeyA2",
-			"Ganon's Tower - Hope Room - Right" => "ProgressiveShield",
-			"Ganon's Tower - Bob's Chest" => "PieceOfHeart",
-			"Ganon's Tower - Tile Room" => "KeyA2",
-			"Ganon's Tower - Compass Room - Top Left" => "TwentyRupees",
-			"Ganon's Tower - Compass Room - Top Right" => "TwentyRupees",
-			"Ganon's Tower - Compass Room - Bottom Left" => "TwentyRupees",
-			"Ganon's Tower - Compass Room - Bottom Right" => "BombUpgrade5",
-			"Ganon's Tower - Big Key Chest" => "TwentyRupees",
-			"Ganon's Tower - Big Key Room - Left" => "PieceOfHeart",
-			"Ganon's Tower - Big Key Room - Right" => "OneHundredRupees",
-			"Ganon's Tower - Mini Helmasaur Room - Left" => "PieceOfHeart",
-			"Ganon's Tower - Mini Helmasaur Room - Right" => "CompassA2",
-			"Ganon's Tower - Pre-Moldorm Chest" => "TwentyRupees",
-			"Ganon's Tower - Moldorm Chest" => "MapA2",
-			"Agahnim 2" => "DefeatAgahnim2",
-			"Turtle Rock Medallion" => "Quake",
-			"Misery Mire Medallion" => "Bombos",
-			"Waterfall Bottle" => "BottleWithBee",
-			"Pyramid Bottle" => "BottleWithBluePotion",
-		], $loc_item_array);
-	}
+        $this->assertEquals([
+            Item::get('PendantOfCourage', $this->world),
+            Item::get('PendantOfPower', $this->world),
+            Item::get('PendantOfWisdom', $this->world),
+        ], [
+            $this->world->getLocation("Eastern Palace - Prize")->getItem(),
+            $this->world->getLocation("Desert Palace - Prize")->getItem(),
+            $this->world->getLocation("Tower of Hera - Prize")->getItem(),
+        ]);
+    }
+    
+    public function testVanillaSwordsSet()
+    {
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'accessibility' => 'full', 'mode.weapons' => 'vanilla']);
+        $this->randomizer = new Randomizer([$this->world]);
+        
+        $this->randomizer->prepareWorld($this->world);
+        
+        $this->assertEquals([
+            Item::get('UncleSword', $this->world),
+            Item::get('Progressive Sword', $this->world),
+            Item::get('Progressive Sword', $this->world),
+            Item::get('Progressive Sword', $this->world),
+        ], [
+            $this->world->getLocation("Link's Uncle")->getItem(),
+            $this->world->getLocation("Pyramid Fairy - Left")->getItem(),
+            $this->world->getLocation("Blacksmith")->getItem(),
+            $this->world->getLocation("Master Sword Pedestal")->getItem(),
+        ]);
+    }
+    
+    public function testVanillaSwordsSetWithPedestalGoal()
+    {
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'accessibility' => 'full', 'mode.weapons' => 'vanilla', 'goal' => 'pedestal']);
+        $this->randomizer = new Randomizer([$this->world]);
+        
+        $this->randomizer->prepareWorld($this->world);
+        
+        $this->assertEquals([
+            Item::get('UncleSword', $this->world),
+            Item::get('Progressive Sword', $this->world),
+            Item::get('Progressive Sword', $this->world),
+            Item::get('Triforce', $this->world),
+        ], [
+            $this->world->getLocation("Link's Uncle")->getItem(),
+            $this->world->getLocation("Pyramid Fairy - Left")->getItem(),
+            $this->world->getLocation("Blacksmith")->getItem(),
+            $this->world->getLocation("Master Sword Pedestal")->getItem(),
+        ]);
+    }
+    
+    public function testSimpleBossShuffle()
+    {
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'enemizer.bossShuffle' => 'simple']);
+        $this->randomizer = new Randomizer([$this->world]);
+        
+        $this->randomizer->placeBosses($this->world);
+        
+        $bosses = array_count_values ([ 
+                    $this->world->getRegion('Eastern Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Desert Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Tower of Hera')->getBoss('')->getEName(),
+                    $this->world->getRegion('Palace of Darkness')->getBoss('')->getEName(),
+                    $this->world->getRegion('Swamp Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Skull Woods')->getBoss('')->getEName(),
+                    $this->world->getRegion('Thieves Town')->getBoss('')->getEName(),
+                    $this->world->getRegion('Ice Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Misery Mire')->getBoss('')->getEName(),
+                    $this->world->getRegion('Turtle Rock')->getBoss('')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('bottom')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('middle')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('top')->getEName()]);
+        
+        $this->assertEquals([2, 2, 2, 1, 1, 1, 1, 1, 1, 1],
+        [
+            $bosses['Armos'],
+            $bosses['Lanmola'],
+            $bosses['Moldorm'],
+            $bosses['Helmasaur'],
+            $bosses['Arrghus'],
+            $bosses['Mothula'],
+            $bosses['Blind'],
+            $bosses['Kholdstare'],
+            $bosses['Vitreous'],
+            $bosses['Trinexx']
+        ]);
+    }
+    
+    public function testFullBossShuffle()
+    {
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'enemizer.bossShuffle' => 'full']);
+        $this->randomizer = new Randomizer([$this->world]);
+        
+        $this->randomizer->placeBosses($this->world);
+        
+        $bosses = array_count_values ([ 
+                    $this->world->getRegion('Eastern Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Desert Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Tower of Hera')->getBoss('')->getEName(),
+                    $this->world->getRegion('Palace of Darkness')->getBoss('')->getEName(),
+                    $this->world->getRegion('Swamp Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Skull Woods')->getBoss('')->getEName(),
+                    $this->world->getRegion('Thieves Town')->getBoss('')->getEName(),
+                    $this->world->getRegion('Ice Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Misery Mire')->getBoss('')->getEName(),
+                    $this->world->getRegion('Turtle Rock')->getBoss('')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('bottom')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('middle')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('top')->getEName()]);
+        
+        $this->assertGreaterThanOrEqual(1, $bosses['Armos']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Lanmola']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Moldorm']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Helmasaur']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Arrghus']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Mothula']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Blind']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Kholdstare']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Vitreous']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Trinexx']);
+    }
+    
+    public function testNoBossShuffle()
+    {
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'enemizer.bossShuffle' => 'none']);
+        $this->randomizer = new Randomizer([$this->world]);
+        
+        $this->randomizer->placeBosses($this->world);
+        
+        $this->assertEquals([ 
+            'Armos', 
+            'Lanmola', 
+            'Moldorm', 
+            'Helmasaur', 
+            'Arrghus', 
+            'Mothula', 
+            'Blind', 
+            'Kholdstare', 
+            'Vitreous', 
+            'Trinexx', 
+            'Armos', 
+            'Lanmola', 
+            'Moldorm'
+          ], [ 
+            $this->world->getRegion('Eastern Palace')->getBoss('')->getEName(),
+            $this->world->getRegion('Desert Palace')->getBoss('')->getEName(),
+            $this->world->getRegion('Tower of Hera')->getBoss('')->getEName(),
+            $this->world->getRegion('Palace of Darkness')->getBoss('')->getEName(),
+            $this->world->getRegion('Swamp Palace')->getBoss('')->getEName(),
+            $this->world->getRegion('Skull Woods')->getBoss('')->getEName(),
+            $this->world->getRegion('Thieves Town')->getBoss('')->getEName(),
+            $this->world->getRegion('Ice Palace')->getBoss('')->getEName(),
+            $this->world->getRegion('Misery Mire')->getBoss('')->getEName(),
+            $this->world->getRegion('Turtle Rock')->getBoss('')->getEName(),
+            $this->world->getRegion('Ganons Tower')->getBoss('bottom')->getEName(),
+            $this->world->getRegion('Ganons Tower')->getBoss('middle')->getEName(),
+            $this->world->getRegion('Ganons Tower')->getBoss('top')->getEName()
+          ]);
+    }
+    
+    public function testSwordlessSimpleBossShuffle()
+    {
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'enemizer.bossShuffle' => 'simple', 'mode.weapons' => 'swordless']);
+        $this->randomizer = new Randomizer([$this->world]);
+        
+        $this->randomizer->placeBosses($this->world);
+        
+        $bosses = array_count_values ([ 
+                    $this->world->getRegion('Eastern Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Desert Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Tower of Hera')->getBoss('')->getEName(),
+                    $this->world->getRegion('Palace of Darkness')->getBoss('')->getEName(),
+                    $this->world->getRegion('Swamp Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Skull Woods')->getBoss('')->getEName(),
+                    $this->world->getRegion('Thieves Town')->getBoss('')->getEName(),
+                    $this->world->getRegion('Ice Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Misery Mire')->getBoss('')->getEName(),
+                    $this->world->getRegion('Turtle Rock')->getBoss('')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('bottom')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('middle')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('top')->getEName()]);
+        
+        $this->assertEquals('Kholdstare', $this->world->getRegion('Ice Palace')->getBoss('')->getEName());
+        
+        $this->assertEquals([2, 2, 2, 1, 1, 1, 1, 1, 1, 1],
+        [
+            $bosses['Armos'],
+            $bosses['Lanmola'],
+            $bosses['Moldorm'],
+            $bosses['Helmasaur'],
+            $bosses['Arrghus'],
+            $bosses['Mothula'],
+            $bosses['Blind'],
+            $bosses['Kholdstare'],
+            $bosses['Vitreous'],
+            $bosses['Trinexx']
+        ]);
+    }
+    
+    public function testSwordlessFullBossShuffle()
+    {
+        $this->world = World::factory('standard', ['difficulty' => 'test_rules', 'enemizer.bossShuffle' => 'full', 'mode.weapons' => 'swordless']);
+        $this->randomizer = new Randomizer([$this->world]);
+        
+        $this->randomizer->placeBosses($this->world);
+        
+        $bosses = array_count_values ([ 
+                    $this->world->getRegion('Eastern Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Desert Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Tower of Hera')->getBoss('')->getEName(),
+                    $this->world->getRegion('Palace of Darkness')->getBoss('')->getEName(),
+                    $this->world->getRegion('Swamp Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Skull Woods')->getBoss('')->getEName(),
+                    $this->world->getRegion('Thieves Town')->getBoss('')->getEName(),
+                    $this->world->getRegion('Ice Palace')->getBoss('')->getEName(),
+                    $this->world->getRegion('Misery Mire')->getBoss('')->getEName(),
+                    $this->world->getRegion('Turtle Rock')->getBoss('')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('bottom')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('middle')->getEName(),
+                    $this->world->getRegion('Ganons Tower')->getBoss('top')->getEName()]);
+        
+        $this->assertEquals('Kholdstare', $this->world->getRegion('Ice Palace')->getBoss('')->getEName());
+        
+        $this->assertGreaterThanOrEqual(1, $bosses['Armos']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Lanmola']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Moldorm']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Helmasaur']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Arrghus']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Mothula']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Blind']);
+        $this->assertEquals(1, $bosses['Kholdstare']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Vitreous']);
+        $this->assertGreaterThanOrEqual(1, $bosses['Trinexx']);
+    }
 }
