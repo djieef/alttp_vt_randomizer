@@ -10,15 +10,15 @@ class CItem implements Constraint {
 	protected $item;
 	
 	public function __construct($i) {
-		if(substr( $i, 0, 11 ) === "Progressive") {
+		if(substr( $i->getRawName(), 0, 11 ) === "Progressive") {
 			throw new \Exception('Item constraints cannot contain progressive items');
 		}
-		$this->item = Item::get($i);
+		$this->item = $i;
 	}
 
 	public function evaluate($items) {
 		$o = false;
-		switch($this->item->getName()) {
+		switch($this->item->getRawName()) {
 			case 'PowerGlove':
 				$o = $items->has('ProgressiveGlove', 1);
 				break;
@@ -39,11 +39,11 @@ class CItem implements Constraint {
 				$o = $items->has('ProgressiveSword', 4);
 				break;
 		}
-		return $o || $items->has($this->item->getName());
+		return $o || $items->has($this->item->getRawName());
 	}
 	
 	public function substitute($placed_item, $new_constraint) {
-		if($placed_item == $this->item->getName()) {
+		if($placed_item == $this->item->getRawName()) {
 			return $new_constraint->normalize();
 		} else {
 			return $this;
@@ -62,7 +62,7 @@ class CItem implements Constraint {
 		return $this;
 	}
 	
-	public static function of($l) {
-		return new CItem($l);
+	public static function of($l, $world) {
+		return new CItem(Item::get($l, $world));
 	}
 }
