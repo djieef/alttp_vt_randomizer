@@ -1,21 +1,26 @@
 <?php
 
+use ALttP\Support\ItemCollection;
 use ALttP\Item;
 use ALttP\World;
 use ALttP\Region;
 use ALttP\Constraint\{CLiteral, CAnd, COr, CItem};
 
 class ConstraintTest extends TestCase {
-	public function setUp() {
-		parent::setUp();
+    public function setUp(): void
+    {
+        parent::setUp();
+        $this->world = World::factory();
+		$this->collection = new ItemCollection;
+		$this->collection->setChecksForWorld($this->world->id);
+    }
 
-		$this->region = new Region(new World('test_rules', 'NoMajorGlitches'));
-	}
-
-	public function tearDown() {
-		parent::tearDown();
-		unset($this->region);
-	}
+    public function tearDown(): void
+    {
+        parent::tearDown();
+        unset($this->collection);
+        unset($this->world);
+    }
 	
 	public function testLiteralEvaluation() {
 		$this->assertTrue(CLiteral::of(true)->evaluate($this->collected));
@@ -23,8 +28,8 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testLiteralSubstitute() {
-		$this->assertTrue(CLiteral::of(true)->substitute('MagicMirror', CItem::of('MoonPearl'))->evaluate($this->collected));
-		$this->assertFalse(CLiteral::of(false)->substitute('MagicMirror', CItem::of('MoonPearl'))->evaluate($this->collected));
+		$this->assertTrue(CLiteral::of(true)->substitute('MagicMirror', CItem::of('MoonPearl', $this->world))->evaluate($this->collected));
+		$this->assertFalse(CLiteral::of(false)->substitute('MagicMirror', CItem::of('MoonPearl', $this->world))->evaluate($this->collected));
 	}
 	
 	public function testLiteralSimplify() {
@@ -57,7 +62,7 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testItemEvaluation() {
-		$c = CItem::of('MagicMirror');
+		$c = CItem::of('MagicMirror', $this->world);
 		$this->assertFalse($c->evaluate($this->collected));
 		
 		$this->addCollected(['MagicMirror']);
@@ -65,19 +70,19 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testItemSimplify() {
-		$c = CItem::of('MagicMirror');
+		$c = CItem::of('MagicMirror', $this->world);
 		$s = $c->simplify();
 		$this->assertTrue($c == $s);
 	}
 	
 	public function testProgressiveGloveEvaluation() {
-		$g1 = CItem::of('PowerGlove');
+		$g1 = CItem::of('PowerGlove', $this->world);
 		$this->assertFalse($g1->evaluate($this->collected));
 		
 		$this->addCollected(['ProgressiveGlove']);
 		$this->assertTrue($g1->evaluate($this->collected));
 		
-		$g2 = CItem::of('TitansMitt');
+		$g2 = CItem::of('TitansMitt', $this->world);
 		$this->assertFalse($g2->evaluate($this->collected));
 		
 		$this->addCollected(['ProgressiveGlove']);
@@ -85,25 +90,25 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testProgressiveSwordEvaluation() {
-		$l1 = CItem::of('L1Sword');
+		$l1 = CItem::of('L1Sword', $this->world);
 		$this->assertFalse($l1->evaluate($this->collected));
 		
 		$this->addCollected(['ProgressiveSword']);
 		$this->assertTrue($l1->evaluate($this->collected));
 		
-		$l2 = CItem::of('L2Sword');
+		$l2 = CItem::of('L2Sword', $this->world);
 		$this->assertFalse($l2->evaluate($this->collected));
 		
 		$this->addCollected(['ProgressiveSword']);
 		$this->assertTrue($l2->evaluate($this->collected));
 		
-		$l3 = CItem::of('L3Sword');
+		$l3 = CItem::of('L3Sword', $this->world);
 		$this->assertFalse($l3->evaluate($this->collected));
 		
 		$this->addCollected(['ProgressiveSword']);
 		$this->assertTrue($l3->evaluate($this->collected));
 		
-		$l4 = CItem::of('L4Sword');
+		$l4 = CItem::of('L4Sword', $this->world);
 		$this->assertFalse($l4->evaluate($this->collected));
 		
 		$this->addCollected(['ProgressiveSword']);
@@ -111,10 +116,10 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testItemSubstitute() {
-		$c = CItem::of('MagicMirror');
+		$c = CItem::of('MagicMirror', $this->world);
 		$this->assertFalse($c->evaluate($this->collected));
 		
-		$new = $c->substitute('MagicMirror', CItem::of('Shovel'));
+		$new = $c->substitute('MagicMirror', CItem::of('Shovel', $this->world));
 		$this->assertFalse($c->evaluate($this->collected));
 				
 		$this->addCollected(['MagicMirror']);
@@ -126,11 +131,11 @@ class ConstraintTest extends TestCase {
 	
 	public function testNestedSubstitute() {
 		// this constraint requires Mirror and Moon pearl
-		$c = CAnd::of(CItem::of('MoonPearl'), CItem::of('MagicMirror'));
+		$c = CAnd::of(CItem::of('MoonPearl', $this->world), CItem::of('MagicMirror', $this->world));
 		$this->assertFalse($c->evaluate($this->collected));
 		
 		// indicates that the Mirror requires the Shovel and Mushroom
-		$new = $c->substitute('MagicMirror', CAnd::of(CItem::of('Shovel'), CItem::of('Mushroom')));
+		$new = $c->substitute('MagicMirror', CAnd::of(CItem::of('Shovel', $this->world), CItem::of('Mushroom', $this->world)));
 		$this->assertFalse($c->evaluate($this->collected));
 		
 		// the Mirror requirement is ANDed with Shovel and Mushroom. the Constraint is satisfied after adding those items.
@@ -149,7 +154,7 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testNormalizeAnd() {
-		$c = CAnd::of(CItem::of('MoonPearl'), CItem::of('MagicMirror'))->normalize();
+		$c = CAnd::of(CItem::of('MoonPearl', $this->world), CItem::of('MagicMirror', $this->world))->normalize();
 		$this->assertFalse($c->evaluate($this->collected));
 				
 		$this->addCollected(['MagicMirror']);
@@ -160,8 +165,8 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testNormalizeAndNestedLeft() {
-		$c = CAnd::of(COr::of(CItem::of('Shovel'), CItem::of('Mushroom')), CItem::of('MoonPearl'))->normalize();
-		$normalized = COr::of(CAnd::of(CItem::of('Shovel'), CItem::of('MoonPearl')), CAnd::of(CItem::of('Mushroom'), CItem::of('MoonPearl')));
+		$c = CAnd::of(COr::of(CItem::of('Shovel', $this->world), CItem::of('Mushroom', $this->world)), CItem::of('MoonPearl', $this->world))->normalize();
+		$normalized = COr::of(CAnd::of(CItem::of('Shovel', $this->world), CItem::of('MoonPearl', $this->world)), CAnd::of(CItem::of('Mushroom', $this->world), CItem::of('MoonPearl', $this->world)));
 
 		$this->assertTrue($c == $normalized);
 		
@@ -170,7 +175,7 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testNormalizeAndNestedRight() {
-		$c = CAnd::of(CItem::of('MoonPearl'), COr::of(CItem::of('Shovel'), CItem::of('Mushroom')))->normalize();
+		$c = CAnd::of(CItem::of('MoonPearl', $this->world), COr::of(CItem::of('Shovel', $this->world), CItem::of('Mushroom', $this->world)))->normalize();
 		$this->assertFalse($c->evaluate($this->collected));
 						
 		$this->addCollected(['MoonPearl']);
@@ -181,10 +186,10 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testNormalizeAndNestedBoth() {
-		$c = CAnd::of(COr::of(CItem::of('MoonPearl'), CItem::of('MagicMirror')), COr::of(CItem::of('Shovel'), CItem::of('Mushroom')))->normalize();
+		$c = CAnd::of(COr::of(CItem::of('MoonPearl', $this->world), CItem::of('MagicMirror', $this->world)), COr::of(CItem::of('Shovel', $this->world), CItem::of('Mushroom', $this->world)))->normalize();
 		$normalized = COr::of(
-							COr::of(CAnd::of(CItem::of('MoonPearl'), CItem::of('Shovel')), CAnd::of(CItem::of('MoonPearl'), CItem::of('Mushroom'))),
-							COr::of(CAnd::of(CItem::of('MagicMirror'), CItem::of('Shovel')),CAnd::of(CItem::of('MagicMirror'), CItem::of('Mushroom'))));
+							COr::of(CAnd::of(CItem::of('MoonPearl', $this->world), CItem::of('Shovel', $this->world)), CAnd::of(CItem::of('MoonPearl', $this->world), CItem::of('Mushroom', $this->world))),
+							COr::of(CAnd::of(CItem::of('MagicMirror', $this->world), CItem::of('Shovel', $this->world)),CAnd::of(CItem::of('MagicMirror', $this->world), CItem::of('Mushroom', $this->world))));
 		$this->assertTrue($c == $normalized);
 						
 		$this->addCollected(['MoonPearl']);
@@ -195,8 +200,8 @@ class ConstraintTest extends TestCase {
 	}
 	
 	public function testMinimumNestedAndOr() {
-		$c = COr::of(COr::of(CAnd::of(CItem::of('MoonPearl'), CItem::of('Shovel')), CAnd::of(CItem::of('MoonPearl'), CItem::of('Mushroom'))),
-					 COr::of(CAnd::of(CItem::of('MagicMirror'), CItem::of('Shovel')),CAnd::of(CItem::of('MagicMirror'), CItem::of('Mushroom'))));
+		$c = COr::of(COr::of(CAnd::of(CItem::of('MoonPearl', $this->world), CItem::of('Shovel', $this->world)), CAnd::of(CItem::of('MoonPearl', $this->world), CItem::of('Mushroom', $this->world))),
+					 COr::of(CAnd::of(CItem::of('MagicMirror', $this->world), CItem::of('Shovel', $this->world)),CAnd::of(CItem::of('MagicMirror', $this->world), CItem::of('Mushroom', $this->world))));
 		$this->assertTrue($c->minRequired() == 2);
 	}
 }
